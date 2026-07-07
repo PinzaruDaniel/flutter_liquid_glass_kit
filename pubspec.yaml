@@ -1,0 +1,26 @@
+name: liquid_glass_kit
+description: iOS 26 Liquid Glass UI kit — native SwiftUI bridge on iOS, graceful glassmorphism fallback on Android.
+version: 0.1.0
+homepage: https://github.com/PinzaruDaniel/liquid_glass_kit
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: LiquidGlassKitPlugin
+      android:
+        package: com.example.liquid_glass_kit
+        pluginClass: LiquidGlassKitPlugin
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
