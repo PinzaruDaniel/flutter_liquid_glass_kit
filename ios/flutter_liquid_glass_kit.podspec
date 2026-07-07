@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
   spec.name             = 'flutter_liquid_glass_kit'
-  spec.version          = '1.0.1'
+  spec.version          = '1.0.0'
   spec.summary          = 'Native iOS Liquid Glass and Android matte-glass widgets for Flutter.'
   spec.description      = <<-DESC
 A Flutter UI kit that uses native SwiftUI Liquid Glass on iOS and a Flutter

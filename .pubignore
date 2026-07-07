@@ -22,3 +22,4 @@ example/pubspec.lock
 
 android/src/main/kotlin/com/example/
 android/src/main/kotlin/com/danielpinzaru/liquid_glass_kit/
+ios/liquid_glass_kit/

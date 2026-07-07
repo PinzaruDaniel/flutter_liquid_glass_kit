@@ -1,6 +1,6 @@
-## 1.0.1
+## 1.0.0
 
-- Rename package to `flutter_liquid_glass_kit` for pub.dev publishing.
+- Initial release as `flutter_liquid_glass_kit`.
 - Add Swift Package Manager support for iOS plugin consumers.
 - Render Liquid Glass natively on iOS with SwiftUI glass surfaces.
 - Add native iOS floating tab bar support.
