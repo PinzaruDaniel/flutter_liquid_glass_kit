@@ -178,11 +178,12 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
     return SizedBox(
       height: widget.height,
       child: UiKitView(
-        viewType: 'liquid_glass_kit/native_nav_bar',
+        viewType: 'flutter_liquid_glass_kit/native_nav_bar',
         creationParams: _creationParams,
         creationParamsCodec: const StandardMessageCodec(),
         onPlatformViewCreated: (id) {
-          final channel = MethodChannel('liquid_glass_kit/native_nav_bar_$id');
+          final channel =
+              MethodChannel('flutter_liquid_glass_kit/native_nav_bar_$id');
           channel.setMethodCallHandler((call) async {
             if (call.method == 'tap') {
               final index = call.arguments as int;

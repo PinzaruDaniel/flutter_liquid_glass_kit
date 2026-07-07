@@ -1,11 +1,11 @@
 {
   "roots": [
-    "liquid_glass_kit"
+    "flutter_liquid_glass_kit"
   ],
   "packages": [
     {
-      "name": "liquid_glass_kit",
-      "version": "0.1.0",
+      "name": "flutter_liquid_glass_kit",
+      "version": "1.0.1",
       "dependencies": [
         "flutter"
       ],

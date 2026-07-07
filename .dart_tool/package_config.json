@@ -158,7 +158,7 @@
       "languageVersion": "3.5"
     },
     {
-      "name": "liquid_glass_kit",
+      "name": "flutter_liquid_glass_kit",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "3.0"

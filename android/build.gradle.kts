@@ -1,4 +1,4 @@
-group = "com.example.liquid_glass_kit"
+group = "com.danielpinzaru.flutter_liquid_glass_kit"
 version = "1.0-SNAPSHOT"
 
 plugins {
@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.liquid_glass_kit"
+    namespace = "com.danielpinzaru.flutter_liquid_glass_kit"
     compileSdk = flutter.compileSdkVersion
 
     compileOptions {

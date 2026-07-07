@@ -1,12 +1,7 @@
-/// iOS 26 Liquid Glass UI Kit
+/// Backwards-compatible export.
 ///
-/// Native SwiftUI bridge on iOS 26+, graceful glassmorphism fallback on Android
-/// and older iOS versions.
+/// Prefer importing:
+/// `package:flutter_liquid_glass_kit/flutter_liquid_glass_kit.dart`.
 library liquid_glass_kit;
 
-export 'src/liquid_glass_card.dart';
-export 'src/liquid_glass_button.dart';
-export 'src/liquid_glass_nav_bar.dart';
-export 'src/liquid_glass_settings.dart';
-export 'src/platform_glass.dart';
-export 'src/fallback_glass.dart' show LiquidGlassBackdropGroup;
+export 'flutter_liquid_glass_kit.dart';

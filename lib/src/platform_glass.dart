@@ -99,7 +99,7 @@ class _NativeLiquidGlass extends StatelessWidget {
           // The native SwiftUI glass surface sits behind the Flutter child
           Positioned.fill(
             child: UiKitView(
-              viewType: 'liquid_glass_kit/glass_surface',
+              viewType: 'flutter_liquid_glass_kit/glass_surface',
               creationParams: _creationParams,
               creationParamsCodec: const StandardMessageCodec(),
             ),

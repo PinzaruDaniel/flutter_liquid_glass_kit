@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_kit/liquid_glass_kit.dart';
+import 'package:flutter_liquid_glass_kit/flutter_liquid_glass_kit.dart';
 
 void main() => runApp(const MyApp());
 

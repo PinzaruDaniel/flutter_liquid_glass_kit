@@ -1,4 +1,4 @@
-# liquid_glass_kit
+# flutter_liquid_glass_kit
 
 iOS 26 Liquid Glass UI kit for Flutter.
 
@@ -18,7 +18,7 @@ iOS 26 Liquid Glass UI kit for Flutter.
 ## Quick start
 
 ```dart
-import 'package:liquid_glass_kit/liquid_glass_kit.dart';
+import 'package:flutter_liquid_glass_kit/flutter_liquid_glass_kit.dart';
 
 // Card
 LiquidGlassCard(
