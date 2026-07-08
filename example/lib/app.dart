@@ -15,6 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Liquid Glass Kit Demo',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const LiquidGlassScrollBehavior(),
       theme: ThemeData.dark(),
       home: const GlassShowcase(),
     );

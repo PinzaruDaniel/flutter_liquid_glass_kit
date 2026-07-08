@@ -26,6 +26,31 @@ void main() {
     expect(updated.blurSigma, 28);
   });
 
+  testWidgets('glass scroll behavior removes overscroll indicators', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Placeholder(),
+      ),
+    );
+
+    final context = tester.element(find.byType(Placeholder));
+    const child = SizedBox(width: 80, height: 40);
+    const behavior = LiquidGlassScrollBehavior();
+    final details = ScrollableDetails(
+      direction: AxisDirection.down,
+      controller: ScrollController(),
+    );
+
+    expect(
+      behavior.buildOverscrollIndicator(context, child, details),
+      same(child),
+    );
+
+    details.controller?.dispose();
+  });
+
   testWidgets('uses the Flutter fallback on Android', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

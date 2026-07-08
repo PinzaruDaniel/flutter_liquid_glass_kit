@@ -110,6 +110,24 @@ class LiquidGlassBackdropGroup extends StatelessWidget {
   Widget build(BuildContext context) => BackdropGroup(child: child);
 }
 
+/// Scroll behavior for Android glass-heavy screens.
+///
+/// Android's default overscroll glow/stretch can temporarily alter backdrop
+/// sampling at the start and end of scrollable content. Use this behavior on
+/// screens that contain fallback glass surfaces to keep the glass tint stable.
+class LiquidGlassScrollBehavior extends MaterialScrollBehavior {
+  const LiquidGlassScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+}
+
 class _SharedBackdropFilter extends StatelessWidget {
   const _SharedBackdropFilter({
     required this.sigma,

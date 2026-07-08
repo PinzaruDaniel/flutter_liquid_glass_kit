@@ -9,4 +9,5 @@ export 'src/liquid_glass_button.dart';
 export 'src/liquid_glass_nav_bar.dart';
 export 'src/liquid_glass_settings.dart';
 export 'src/platform_glass.dart';
-export 'src/fallback_glass.dart' show LiquidGlassBackdropGroup;
+export 'src/fallback_glass.dart'
+    show LiquidGlassBackdropGroup, LiquidGlassScrollBehavior;

@@ -3,6 +3,7 @@
 - Added pages for example app.
 - Improve animation for android navigation bar.
 - Improve native iOS usage.
+- Add `LiquidGlassScrollBehavior` to keep Android glass colors stable during overscroll.
 
 ## 1.0.1
 
