@@ -1,3 +1,8 @@
+## 1.0.1
+
+- Prepare the package for a `1.0.1` patch release.
+- Format the example search item list.
+
 ## 1.0.0
 
 - Initial release as `flutter_liquid_glass_kit`.

@@ -23,15 +23,18 @@ const searchItems = [
     Icons.motion_photos_on,
     'Tab motion',
     'Tap Home, Search, Saved, and Profile to inspect animation',
-  ),  SearchItem(
+  ),
+  SearchItem(
     Icons.map,
     'Tab motion',
     'Tap Home, Search, Saved, and Profile to inspect animation',
-  ),  SearchItem(
+  ),
+  SearchItem(
     Icons.fax_rounded,
     'Tab motion',
     'Tap Home, Search, Saved, and Profile to inspect animation',
-  ), SearchItem(
+  ),
+  SearchItem(
     Icons.backpack_outlined,
     'Tab motion',
     'Tap Home, Search, Saved, and Profile to inspect animation',
