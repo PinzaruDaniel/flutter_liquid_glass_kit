@@ -25,6 +25,7 @@ class PlatformGlass extends StatelessWidget {
     required this.child,
     required this.borderRadius,
     this.settings = LiquidGlassSettings.matteLight,
+    this.useSharedBackdrop = true,
     this.width,
     this.height,
   });
@@ -32,6 +33,12 @@ class PlatformGlass extends StatelessWidget {
   final Widget child;
   final BorderRadius borderRadius;
   final LiquidGlassSettings settings;
+
+  /// Whether Android fallback surfaces can use [BackdropFilter.grouped].
+  ///
+  /// Disable this for floating surfaces that may overlap other glass widgets.
+  final bool useSharedBackdrop;
+
   final double? width;
   final double? height;
 
@@ -49,6 +56,7 @@ class PlatformGlass extends StatelessWidget {
     return FallbackGlass(
       borderRadius: borderRadius,
       settings: settings,
+      useSharedBackdrop: useSharedBackdrop,
       width: width,
       height: height,
       child: child,

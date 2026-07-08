@@ -19,7 +19,7 @@ example/ios/Flutter/ephemeral/
 example/ios/Flutter/Generated.xcconfig
 example/ios/Flutter/flutter_export_environment.sh
 example/pubspec.lock
+ios/**/.swiftpm/
 
 android/src/main/kotlin/com/example/
 android/src/main/kotlin/com/danielpinzaru/liquid_glass_kit/
-ios/liquid_glass_kit/

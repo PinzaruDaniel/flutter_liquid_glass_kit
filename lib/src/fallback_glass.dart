@@ -14,6 +14,7 @@ class FallbackGlass extends StatelessWidget {
     required this.child,
     required this.borderRadius,
     required this.settings,
+    this.useSharedBackdrop = true,
     this.width,
     this.height,
   });
@@ -21,6 +22,16 @@ class FallbackGlass extends StatelessWidget {
   final Widget child;
   final BorderRadius borderRadius;
   final LiquidGlassSettings settings;
+
+  /// Whether this surface can share one backdrop pass with sibling glass
+  /// surfaces inside [LiquidGlassBackdropGroup].
+  ///
+  /// Keep this disabled for floating surfaces that can overlap scroll content
+  /// (for example bottom navigation bars). Overlapping grouped backdrop filters
+  /// can visually cancel each other and make the glass look transparent during
+  /// Android overscroll.
+  final bool useSharedBackdrop;
+
   final double? width;
   final double? height;
 
@@ -59,6 +70,7 @@ class FallbackGlass extends StatelessWidget {
         ? glassContent
         : _SharedBackdropFilter(
             sigma: blurSigma,
+            enabled: useSharedBackdrop,
             child: glassContent,
           );
 
@@ -99,15 +111,20 @@ class LiquidGlassBackdropGroup extends StatelessWidget {
 }
 
 class _SharedBackdropFilter extends StatelessWidget {
-  const _SharedBackdropFilter({required this.sigma, required this.child});
+  const _SharedBackdropFilter({
+    required this.sigma,
+    required this.enabled,
+    required this.child,
+  });
 
   final double sigma;
+  final bool enabled;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final filter = ImageFilter.blur(sigmaX: sigma, sigmaY: sigma);
-    if (BackdropGroup.of(context) != null) {
+    if (enabled && BackdropGroup.of(context) != null) {
       return BackdropFilter.grouped(filter: filter, child: child);
     }
     return BackdropFilter(filter: filter, child: child);

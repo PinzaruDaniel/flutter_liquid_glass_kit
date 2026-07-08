@@ -157,6 +157,7 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
   private let tabBar: UITabBar
   private let channel: FlutterMethodChannel
   private var items: [UITabBarItem] = []
+  private var disposed = false
 
   init(
     frame: CGRect,
@@ -172,6 +173,12 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
     )
     super.init()
     setup(frame: frame, args: args)
+  }
+
+  deinit {
+    disposed = true
+    tabBar.delegate = nil
+    channel.setMethodCallHandler(nil)
   }
 
   func view() -> UIView { container }
@@ -290,8 +297,12 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
   }
 
   func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-    animateSelectedItem(index: item.tag)
-    channel.invokeMethod("tap", arguments: item.tag)
+    let selectedIndex = item.tag
+    DispatchQueue.main.async { [weak self] in
+      guard let self = self, !self.disposed else { return }
+      self.animateSelectedItem(index: selectedIndex)
+      self.channel.invokeMethod("tap", arguments: selectedIndex)
+    }
   }
 
   private func animateSelectedItem(index: Int) {

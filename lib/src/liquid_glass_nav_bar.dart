@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 
 import 'liquid_glass_settings.dart';
 import 'platform_glass.dart';
@@ -205,7 +206,7 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
 /// Shared floating dock. [PlatformGlass] supplies native Liquid Glass on iOS
 /// and the matte/tinted renderer on Android; the selection motion stays the
 /// same on both platforms.
-class _LiquidGlassDock extends StatelessWidget {
+class _LiquidGlassDock extends StatefulWidget {
   const _LiquidGlassDock({
     required this.items,
     required this.currentIndex,
@@ -231,61 +232,150 @@ class _LiquidGlassDock extends StatelessWidget {
   final bool showLabels;
 
   @override
+  State<_LiquidGlassDock> createState() => _LiquidGlassDockState();
+}
+
+class _LiquidGlassDockState extends State<_LiquidGlassDock>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late int _fromIndex;
+  late int _toIndex;
+
+  static const _duration = Duration(milliseconds: 550);
+  // How much the blob grows vertically (px) at the peak of the stretch.
+  static const double _maxVerticalStretch = 6;
+
+  @override
+  void initState() {
+    super.initState();
+    _fromIndex = widget.currentIndex;
+    _toIndex = widget.currentIndex;
+    _controller = AnimationController(vsync: this, duration: _duration)
+      ..value = 1;
+  }
+
+  @override
+  void didUpdateWidget(covariant _LiquidGlassDock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex != widget.currentIndex) {
+      _fromIndex = _currentBlobIndex();
+      _toIndex = widget.currentIndex;
+      _controller
+        ..stop()
+        ..value = 0
+        ..forward();
+    }
+  }
+
+  // If a tap interrupts an in-flight animation, start the new leg from
+  // wherever the blob visually is right now instead of snapping back.
+  int _currentBlobIndex() {
+    if (!_controller.isAnimating) return _toIndex;
+    final t = Curves.easeOutCubic.transform(_controller.value);
+    return (_fromIndex + (_toIndex - _fromIndex) * t).round();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  /// Computes the current geometry of the liquid indicator.
+  ///
+  /// The center eases from [_fromIndex] to [_toIndex]. Independently, a
+  /// bell-shaped stretch factor (0 at start/end, peak at the midpoint)
+  /// grows the blob vertically, then settles back to the resting pill shape.
+  Rect _blobRect(double itemWidth, double dockHeight) {
+    final t = _controller.value;
+    final positionT = Curves.easeOutCubic.transform(t);
+
+    final fromCenter = (_fromIndex + 0.5) * itemWidth;
+    final toCenter = (_toIndex + 0.5) * itemWidth;
+    final center = _lerp(fromCenter, toCenter, positionT);
+
+    // Bell curve: 0 at t=0 and t=1, 1 at t=0.5.
+    final stretch = math.sin(math.pi * t);
+
+    // Scale the stretch by travel distance so an adjacent-tab tap doesn't
+    // balloon as dramatically as a jump across the whole dock.
+    final travel = (toCenter - fromCenter).abs();
+    final travelFactor = (travel / (itemWidth * 1.5)).clamp(0.35, 1.0);
+
+    final restWidth = itemWidth - 8;
+    final restHeight = dockHeight - 8;
+
+    final width = restWidth;
+    final height = (restHeight + _maxVerticalStretch * stretch * travelFactor)
+        .clamp(restHeight, dockHeight - 4);
+
+    final left = center - width / 2;
+    final top = (dockHeight - height) / 2;
+
+    return Rect.fromLTWH(left, top, width, height);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final dockSettings = settings.tintColor == null
-        ? settings.copyWith(tintColor: Colors.black, tintOpacity: 0.26)
-        : settings;
+    final dockSettings = widget.settings.tintColor == null
+        ? widget.settings.copyWith(tintColor: Colors.black, tintOpacity: 0.26)
+        : widget.settings;
 
     return SizedBox(
-      height: height,
+      height: widget.height,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Keep the expensive fallback blur outside the animated subtree.
           RepaintBoundary(
             child: IgnorePointer(
               child: PlatformGlass(
-                borderRadius: borderRadius,
+                borderRadius: widget.borderRadius,
                 settings: dockSettings,
+                useSharedBackdrop: false,
                 child: const SizedBox.expand(),
               ),
             ),
           ),
           LayoutBuilder(
             builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth / items.length;
+              final itemWidth = constraints.maxWidth / widget.items.length;
               return Stack(
                 children: [
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 420),
-                    curve: Curves.easeOutBack,
-                    left: currentIndex * itemWidth + 4,
-                    top: 4,
-                    width: itemWidth - 8,
-                    bottom: 4,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: indicatorColor.withValues(alpha: 0.28),
-                        borderRadius: BorderRadius.circular((height - 8) / 2),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.14),
+                  AnimatedBuilder(
+                    animation: _controller,
+                    builder: (context, _) {
+                      final rect = _blobRect(itemWidth, widget.height);
+                      return Positioned.fromRect(
+                        rect: rect,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color:
+                                widget.indicatorColor.withValues(alpha: 0.28),
+                            borderRadius:
+                                BorderRadius.circular(rect.height / 2),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                   Row(
                     children: [
-                      for (var index = 0; index < items.length; index++)
+                      for (var index = 0; index < widget.items.length; index++)
                         Expanded(
                           child: _DockItem(
-                            item: items[index],
-                            isActive: index == currentIndex,
-                            activeColor: activeColor,
-                            inactiveColor: inactiveColor,
-                            showLabel: showLabels,
+                            item: widget.items[index],
+                            isActive: index == widget.currentIndex,
+                            activeColor: widget.activeColor,
+                            inactiveColor: widget.inactiveColor,
+                            showLabel: widget.showLabels,
                             onTap: () {
                               HapticFeedback.selectionClick();
-                              onTap(index);
+                              widget.onTap(index);
                             },
                           ),
                         ),
@@ -331,9 +421,11 @@ class _DockItem extends StatelessWidget {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              AnimatedSwitcher(
+              AnimatedScale(
                 duration: const Duration(milliseconds: 220),
-                child: Icon(icon, key: ValueKey(icon), color: color, size: 25),
+                curve: Curves.easeOutCubic,
+                scale: isActive ? 1.08 : 1,
+                child: Icon(icon, color: color, size: 25),
               ),
               if (item.badge != null && item.badge! > 0)
                 Positioned(
