@@ -1,3 +1,9 @@
+## 1.0.2
+
+- Added pages for example app.
+- Improve animation for android navigation bar.
+- Improve native iOS usage.
+
 ## 1.0.1
 
 - Prepare the package for a `1.0.1` patch release.
