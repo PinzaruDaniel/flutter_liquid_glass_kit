@@ -191,6 +191,80 @@ void main() {
     expect(_fallbackSettingsUnder(tester, 'nav'), localSettings);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
+  testWidgets('matteDark inherits through a group and paints a dark surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LiquidGlassSettingsScope(
+          settings: LiquidGlassSettings.matteDark,
+          child: LiquidGlassBackdropGroup(
+            child: Center(
+              child: LiquidGlassCard(
+                key: ValueKey('dark-card'),
+                child: SizedBox(width: 120, height: 60),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      _fallbackSettingsUnder(tester, 'dark-card'),
+      LiquidGlassSettings.matteDark,
+    );
+
+    final decoration = _glassDecorationUnder(tester, 'dark-card');
+    final gradient = decoration.gradient! as LinearGradient;
+
+    expect(
+      decoration.color,
+      const Color(0xFF1C1C1E).withValues(alpha: 0.72),
+    );
+    expect(
+      gradient.colors.first,
+      Color.lerp(
+        const Color(0xFF1C1C1E),
+        Colors.white,
+        0.32,
+      )!
+          .withValues(alpha: 0.18),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('custom Android tint remains visible in the glass gradient', (
+    tester,
+  ) async {
+    const purple = Color(0xFF9333EA);
+    final settings = LiquidGlassSettings.matteDark.copyWith(
+      tintColor: purple,
+      tintOpacity: 0.30,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LiquidGlassSettingsScope(
+          settings: settings,
+          child: const LiquidGlassCard(
+            key: ValueKey('purple-card'),
+            child: SizedBox(width: 120, height: 60),
+          ),
+        ),
+      ),
+    );
+
+    final decoration = _glassDecorationUnder(tester, 'purple-card');
+    final gradient = decoration.gradient! as LinearGradient;
+
+    expect(decoration.color, purple.withValues(alpha: 0.30));
+    expect(
+      gradient.colors.first,
+      Color.lerp(purple, Colors.white, 0.32)!.withValues(alpha: 0.18),
+    );
+    expect(gradient.colors.last, purple.withValues(alpha: 0.10));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   testWidgets('Android nav bar can render a custom widget icon', (
     tester,
   ) async {
@@ -423,4 +497,17 @@ LiquidGlassSettings _fallbackSettingsUnder(
     ),
   );
   return fallback.settings;
+}
+
+BoxDecoration _glassDecorationUnder(WidgetTester tester, String key) {
+  return tester
+      .widgetList<Container>(
+        find.descendant(
+          of: find.byKey(ValueKey(key)),
+          matching: find.byType(Container),
+        ),
+      )
+      .map((container) => container.decoration)
+      .whereType<BoxDecoration>()
+      .singleWhere((decoration) => decoration.gradient != null);
 }

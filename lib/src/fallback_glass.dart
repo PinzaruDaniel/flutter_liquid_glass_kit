@@ -40,9 +40,19 @@ class FallbackGlass extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tint = settings.tintColor ??
         (isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F8FA));
+    final surfaceIsDark =
+        ThemeData.estimateBrightnessForColor(tint) == Brightness.dark;
+    final tintedHighlight = Color.lerp(
+      tint,
+      Colors.white,
+      surfaceIsDark ? 0.32 : 0.18,
+    )!;
     final highlight = settings.tintColor == null
         ? Colors.white.withValues(alpha: isDark ? 0.06 : 0.22)
-        : tint.withValues(alpha: isDark ? 0.16 : 0.20);
+        : tintedHighlight.withValues(alpha: surfaceIsDark ? 0.18 : 0.16);
+    final lowlight = settings.tintColor == null
+        ? Colors.white.withValues(alpha: surfaceIsDark ? 0.025 : 0.05)
+        : tint.withValues(alpha: surfaceIsDark ? 0.10 : 0.08);
 
     final blurSigma =
         settings.blurSigma.clamp(0.0, settings.androidBlurSigma).toDouble();
@@ -60,7 +70,7 @@ class FallbackGlass extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             highlight,
-            Colors.white.withValues(alpha: isDark ? 0.02 : 0.05),
+            lowlight,
           ],
         ),
       ),

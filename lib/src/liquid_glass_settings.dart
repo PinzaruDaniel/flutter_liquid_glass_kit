@@ -63,9 +63,11 @@ class LiquidGlassSettings {
 
   static const LiquidGlassSettings matteDark = LiquidGlassSettings(
     tintColor: Color(0xFF1C1C1E),
-    tintOpacity: 0.55,
+    tintOpacity: 0.72,
     blurSigma: 24,
-    borderOpacity: 0.15,
+    androidBlurSigma: 10,
+    borderOpacity: 0.18,
+    shadowOpacity: 0.20,
   );
 
   /// Resolves component settings from a local override, the nearest shared

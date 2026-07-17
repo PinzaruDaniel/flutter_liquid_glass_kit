@@ -1,5 +1,7 @@
 ## 1.0.5
 
+- Preserve custom Android tint colors through the glass highlight gradient instead of washing them out with white.
+- Make `LiquidGlassSettings.matteDark` render a clearly dark matte surface and inherit correctly through performance-only backdrop groups.
 - Add shared baseline settings through `LiquidGlassBackdropGroup`, with per-component overrides.
 - Improve Android scrolling performance by pausing grouped backdrop blur during motion, retaining stable backdrop keys, and isolating nav drag repaints.
 

@@ -48,11 +48,7 @@ class _GlassShowcaseState extends State<GlassShowcase> {
       _navIndex = index;
     });
     if (!_pageController.hasClients) return;
-    await _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 420),
-      curve: Curves.easeOutCubic,
-    );
+    await _pageController.animateToPage(index, duration: const Duration(milliseconds: 420), curve: Curves.easeOutCubic);
     if (!mounted || _programmaticTargetIndex != index) return;
     setState(() => _programmaticTargetIndex = null);
   }
@@ -72,73 +68,68 @@ class _GlassShowcaseState extends State<GlassShowcase> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const DemoBackground(),
-          SafeArea(
-            bottom: false,
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: _onPageChanged,
-              children: [
-                ShowcasePage(
-                  loading: _loading,
-                  onToggleLoading: _runLoadingDemo,
-                ),
-                const SearchPage(),
-                const SavedPage(),
-                const ProfilePage(),
-              ],
-            ),
-          ),
-          LiquidGlassNavBar(
-            currentIndex: _navIndex,
-            onTap: _setNavIndex,
-            items: const [
-              LiquidGlassNavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home,
-                label: 'Home',
-                iosSystemImage: 'house',
-                iosSelectedSystemImage: 'house.fill',
+    return LiquidGlassSettingsScope(
+      settings: LiquidGlassSettings.matteDark.copyWith(tintColor: const Color(0xFF9333EA), tintOpacity: 0.3),
+
+      child: Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            const DemoBackground(),
+            SafeArea(
+              bottom: false,
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: _onPageChanged,
+                children: [
+                  ShowcasePage(loading: _loading, onToggleLoading: _runLoadingDemo),
+                  const SearchPage(),
+                  const SavedPage(),
+                  const ProfilePage(),
+                ],
               ),
-              LiquidGlassNavItem(
-                icon: Icons.search,
-                label: 'Search',
-                badge: 3,
-                androidIcon: SizedBox.square(
-                  dimension: 25,
-                  child: Center(
-                    child: Text(
-                      'S',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
+            ),
+            LiquidGlassNavBar(
+              currentIndex: _navIndex,
+              onTap: _setNavIndex,
+              items: const [
+                LiquidGlassNavItem(
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home,
+                  label: 'Home',
+                  iosSystemImage: 'house',
+                  iosSelectedSystemImage: 'house.fill',
+                ),
+                LiquidGlassNavItem(
+                  icon: Icons.search,
+                  label: 'Search',
+                  badge: 3,
+                  androidIcon: SizedBox.square(
+                    dimension: 25,
+                    child: Center(
+                      child: Text('S', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                     ),
                   ),
+                  iosSystemImage: 'magnifyingglass',
                 ),
-                iosSystemImage: 'magnifyingglass',
-              ),
-              LiquidGlassNavItem(
-                icon: Icons.favorite_outline,
-                activeIcon: Icons.favorite,
-                label: 'Saved',
-                iosSystemImage: 'heart',
-                iosSelectedSystemImage: 'heart.fill',
-              ),
-              LiquidGlassNavItem(
-                icon: Icons.person_outline,
-                activeIcon: Icons.person,
-                label: 'Profile',
-                iosSystemImage: 'person',
-                iosSelectedSystemImage: 'person.fill',
-              ),
-            ],
-          ),
-        ],
+                LiquidGlassNavItem(
+                  icon: Icons.favorite_outline,
+                  activeIcon: Icons.favorite,
+                  label: 'Saved',
+                  iosSystemImage: 'heart',
+                  iosSelectedSystemImage: 'heart.fill',
+                ),
+                LiquidGlassNavItem(
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
+                  label: 'Profile',
+                  iosSystemImage: 'person',
+                  iosSelectedSystemImage: 'person.fill',
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

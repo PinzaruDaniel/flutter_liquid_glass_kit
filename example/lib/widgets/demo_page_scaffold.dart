@@ -18,8 +18,7 @@ class DemoPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidGlassBackdropGroup(
-      settings: LiquidGlassSettings.matteLight,
-      disableBlurWhileScrolling: true,
+      disableBlurWhileScrolling: false,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
         child: Column(
