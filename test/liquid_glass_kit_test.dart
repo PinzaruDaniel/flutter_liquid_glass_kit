@@ -26,6 +26,20 @@ void main() {
     expect(updated.blurSigma, 28);
   });
 
+  test('equivalent settings use value equality', () {
+    const first = LiquidGlassSettings(
+      tintColor: Colors.blue,
+      tintOpacity: 0.3,
+    );
+    const second = LiquidGlassSettings(
+      tintColor: Colors.blue,
+      tintOpacity: 0.3,
+    );
+
+    expect(first, second);
+    expect(first.hashCode, second.hashCode);
+  });
+
   testWidgets('glass scroll behavior removes overscroll indicators', (
     tester,
   ) async {
@@ -62,6 +76,119 @@ void main() {
     );
 
     expect(find.byType(FallbackGlass), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('grouped Android glass skips blur while scrolling', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 240,
+            child: LiquidGlassBackdropGroup(
+              child: ListView.builder(
+                itemCount: 12,
+                itemBuilder: (context, index) => Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: FallbackGlass(
+                    borderRadius: BorderRadius.circular(16),
+                    settings: LiquidGlassSettings.matteLight,
+                    child: const SizedBox(height: 72),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(BackdropFilter), findsWidgets);
+    final initialKey = tester
+        .widget<BackdropGroup>(
+          find.byType(BackdropGroup),
+        )
+        .backdropKey;
+
+    final gesture = await tester.startGesture(const Offset(200, 180));
+    await gesture.moveBy(const Offset(0, -100));
+    await tester.pump();
+
+    expect(find.byType(BackdropFilter), findsNothing);
+    expect(
+      tester.widget<BackdropGroup>(find.byType(BackdropGroup)).backdropKey,
+      same(initialKey),
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(BackdropFilter), findsWidgets);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('components inherit group settings and allow local overrides', (
+    tester,
+  ) async {
+    const sharedSettings = LiquidGlassSettings(
+      tintColor: Colors.blue,
+      tintOpacity: 0.32,
+    );
+    const localSettings = LiquidGlassSettings(
+      tintColor: Colors.green,
+      tintOpacity: 0.4,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LiquidGlassBackdropGroup(
+          settings: sharedSettings,
+          child: Scaffold(
+            body: Stack(
+              children: [
+                const Positioned(
+                  top: 20,
+                  left: 20,
+                  child: LiquidGlassCard(
+                    key: ValueKey('card'),
+                    child: Text('Card'),
+                  ),
+                ),
+                const Positioned(
+                  top: 100,
+                  left: 20,
+                  child: LiquidGlassButton(
+                    key: ValueKey('button'),
+                    onPressed: _noopVoid,
+                    child: Text('Button'),
+                  ),
+                ),
+                const Positioned(
+                  top: 180,
+                  left: 20,
+                  child: PlatformGlass(
+                    key: ValueKey('platform'),
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                    child: SizedBox(width: 80, height: 40),
+                  ),
+                ),
+                LiquidGlassNavBar(
+                  key: const ValueKey('nav'),
+                  currentIndex: 0,
+                  onTap: _noop,
+                  settings: localSettings,
+                  items: _navItems,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    for (final key in ['card', 'button', 'platform']) {
+      expect(_fallbackSettingsUnder(tester, key), sharedSettings);
+    }
+    expect(_fallbackSettingsUnder(tester, 'nav'), localSettings);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('Android nav bar can render a custom widget icon', (
@@ -264,6 +391,8 @@ void main() {
 
 void _noop(int index) {}
 
+void _noopVoid() {}
+
 const _navItems = [
   LiquidGlassNavItem(icon: Icons.home, label: 'Home'),
   LiquidGlassNavItem(icon: Icons.search, label: 'Search'),
@@ -281,4 +410,17 @@ Finder _animatedLabel(String label) {
         widget.child is Text &&
         (widget.child as Text).data == label,
   );
+}
+
+LiquidGlassSettings _fallbackSettingsUnder(
+  WidgetTester tester,
+  String key,
+) {
+  final fallback = tester.widget<FallbackGlass>(
+    find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.byType(FallbackGlass),
+    ),
+  );
+  return fallback.settings;
 }

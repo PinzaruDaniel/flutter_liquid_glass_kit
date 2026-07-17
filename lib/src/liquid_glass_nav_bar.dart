@@ -39,7 +39,7 @@ class LiquidGlassNavBar extends StatelessWidget {
     required this.items,
     required this.currentIndex,
     required this.onTap,
-    this.settings = LiquidGlassSettings.matteLight,
+    LiquidGlassSettings? settings,
     this.height = 64,
     this.horizontalPadding = 20,
     this.bottomPadding = 16,
@@ -48,7 +48,8 @@ class LiquidGlassNavBar extends StatelessWidget {
     this.inactiveColor = const Color(0x99FFFFFF),
     this.indicatorColor = const Color(0x33FFFFFF),
     this.showLabels = true,
-  })  : assert(items.length > 1, 'A navigation bar needs at least two items.'),
+  })  : _settings = settings,
+        assert(items.length > 1, 'A navigation bar needs at least two items.'),
         assert(currentIndex >= 0 && currentIndex < items.length),
         assert(height > 0),
         assert(horizontalPadding >= 0),
@@ -57,7 +58,13 @@ class LiquidGlassNavBar extends StatelessWidget {
   final List<LiquidGlassNavItem> items;
   final int currentIndex;
   final ValueChanged<int> onTap;
-  final LiquidGlassSettings settings;
+  final LiquidGlassSettings? _settings;
+
+  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  ///
+  /// During build, omitted settings inherit from the nearest shared scope.
+  LiquidGlassSettings get settings =>
+      _settings ?? LiquidGlassSettings.matteLight;
 
   /// Height of the nav bar surface.
   final double height;
@@ -79,13 +86,14 @@ class LiquidGlassNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeBottom = MediaQuery.of(context).padding.bottom;
+    final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
     final navBar = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
         ? _NativeIOSNavBar(
             items: items,
             currentIndex: currentIndex,
             onTap: onTap,
             height: height,
-            settings: settings,
+            settings: effectiveSettings,
             activeColor: activeColor,
             inactiveColor: inactiveColor,
             indicatorColor: indicatorColor,
@@ -96,7 +104,7 @@ class LiquidGlassNavBar extends StatelessWidget {
             currentIndex: currentIndex,
             onTap: onTap,
             height: height,
-            settings: settings,
+            settings: effectiveSettings,
             borderRadius: borderRadius,
             activeColor: activeColor,
             inactiveColor: inactiveColor,
@@ -244,15 +252,15 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
   late final AnimationController _controller;
   late final AnimationController _holdController;
   late final Listenable _indicatorAnimation;
+  late final ValueNotifier<double?> _dragCenter;
+  late final ValueNotifier<int?> _dragIndex;
   late double _fromPosition;
   late double _toPosition;
-  double? _dragCenter;
-  int? _dragIndex;
 
   static const _duration = Duration(milliseconds: 550);
   static const _holdDuration = Duration(milliseconds: 180);
   static const double _holdWidthExpansion = 16;
-  static const double _holdHeightExpansion = 12;
+  static const double _holdHeightExpansion = 14;
   // Long jumps briefly lift the indicator beyond the dock, like the native
   // Liquid Glass selection motion.
   static const double _maxVerticalStretch = 18;
@@ -262,6 +270,8 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     super.initState();
     _fromPosition = widget.currentIndex.toDouble();
     _toPosition = widget.currentIndex.toDouble();
+    _dragCenter = ValueNotifier(null);
+    _dragIndex = ValueNotifier(null);
     _controller = AnimationController(vsync: this, duration: _duration)
       ..value = 1;
     _holdController = AnimationController(
@@ -269,7 +279,11 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
       duration: _holdDuration,
       reverseDuration: const Duration(milliseconds: 140),
     );
-    _indicatorAnimation = Listenable.merge([_controller, _holdController]);
+    _indicatorAnimation = Listenable.merge([
+      _controller,
+      _holdController,
+      _dragCenter,
+    ]);
   }
 
   @override
@@ -309,34 +323,30 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     _controller.stop();
     _holdController.forward();
     final clamped = _clampDragCenter(center, itemWidth, dockWidth);
-    setState(() {
-      _dragCenter = clamped;
-      _dragIndex = _indexForCenter(clamped, itemWidth);
-    });
+    _dragIndex.value = _indexForCenter(clamped, itemWidth);
+    _dragCenter.value = clamped;
   }
 
   void _updateDrag(double center, double itemWidth, double dockWidth) {
     final clamped = _clampDragCenter(center, itemWidth, dockWidth);
     final index = _indexForCenter(clamped, itemWidth);
-    if (index != _dragIndex) HapticFeedback.selectionClick();
-    setState(() {
-      _dragCenter = clamped;
-      _dragIndex = index;
-    });
+    if (index != _dragIndex.value) {
+      HapticFeedback.selectionClick();
+      _dragIndex.value = index;
+    }
+    _dragCenter.value = clamped;
   }
 
   void _finishDrag(double itemWidth, {required bool selectItem}) {
-    final center = _dragCenter;
+    final center = _dragCenter.value;
     if (center == null) return;
 
     final target =
         selectItem ? _indexForCenter(center, itemWidth) : widget.currentIndex;
     _fromPosition = center / itemWidth - 0.5;
     _toPosition = target.toDouble();
-    setState(() {
-      _dragCenter = null;
-      _dragIndex = null;
-    });
+    _dragIndex.value = null;
+    _dragCenter.value = null;
     _holdController.reverse();
     _controller
       ..value = 0
@@ -351,6 +361,8 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
   void dispose() {
     _controller.dispose();
     _holdController.dispose();
+    _dragCenter.dispose();
+    _dragIndex.dispose();
     super.dispose();
   }
 
@@ -362,7 +374,7 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
   /// bell-shaped stretch factor (0 at start/end, peak at the midpoint)
   /// grows the blob vertically, then settles back to the resting pill shape.
   Rect _blobRect(double itemWidth, double dockHeight) {
-    final dragCenter = _dragCenter;
+    final dragCenter = _dragCenter.value;
     if (dragCenter != null) {
       final restWidth = itemWidth - 8;
       final restHeight = dockHeight - 8;
@@ -482,26 +494,29 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
                           );
                         },
                       ),
-                      Row(
-                        children: [
-                          for (var index = 0;
-                              index < widget.items.length;
-                              index++)
-                            Expanded(
-                              child: _DockItem(
-                                item: widget.items[index],
-                                isActive: index ==
-                                    (_dragIndex ?? widget.currentIndex),
-                                activeColor: widget.activeColor,
-                                inactiveColor: widget.inactiveColor,
-                                showLabel: widget.showLabels,
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  widget.onTap(index);
-                                },
+                      ValueListenableBuilder<int?>(
+                        valueListenable: _dragIndex,
+                        builder: (context, dragIndex, _) => Row(
+                          children: [
+                            for (var index = 0;
+                                index < widget.items.length;
+                                index++)
+                              Expanded(
+                                child: _DockItem(
+                                  item: widget.items[index],
+                                  isActive: index ==
+                                      (dragIndex ?? widget.currentIndex),
+                                  activeColor: widget.activeColor,
+                                  inactiveColor: widget.inactiveColor,
+                                  showLabel: widget.showLabels,
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    widget.onTap(index);
+                                  },
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),

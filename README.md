@@ -74,6 +74,26 @@ LiquidGlassCard(
 )
 ```
 
+For scrollable screens with several non-overlapping glass surfaces, wrap the
+scrollable in `LiquidGlassBackdropGroup`. Android shares the backdrop pass and
+temporarily uses the matte tint without blur while scrolling:
+
+```dart
+LiquidGlassBackdropGroup(
+  settings: const LiquidGlassSettings(
+    tintColor: Colors.blue,
+    tintOpacity: 0.24,
+  ),
+  child: ListView(children: glassCards),
+)
+```
+
+Cards, buttons, navigation bars, and direct `PlatformGlass` descendants inherit
+these settings when their own `settings` argument is omitted. Pass `settings`
+to any individual component to override the group for that component.
+
+Set `disableBlurWhileScrolling: false` to keep blur active during motion.
+
 ## Check rendering mode at runtime
 
 ```dart

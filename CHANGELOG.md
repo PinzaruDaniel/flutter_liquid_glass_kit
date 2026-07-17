@@ -1,3 +1,8 @@
+## 1.0.5
+
+- Add shared baseline settings through `LiquidGlassBackdropGroup`, with per-component overrides.
+- Improve Android scrolling performance by pausing grouped backdrop blur during motion, retaining stable backdrop keys, and isolating nav drag repaints.
+
 ## 1.0.4
 
 - Improve the Android navigation indicator with finger-following drag selection, active item previews, press expansion, and an iOS-style vertical stretch during tab jumps.

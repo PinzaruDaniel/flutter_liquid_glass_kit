@@ -68,6 +68,17 @@ class LiquidGlassSettings {
     borderOpacity: 0.15,
   );
 
+  /// Resolves component settings from a local override, the nearest shared
+  /// settings scope, or [matteLight] when neither is supplied.
+  static LiquidGlassSettings resolve(
+    BuildContext context,
+    LiquidGlassSettings? localSettings,
+  ) {
+    return localSettings ??
+        LiquidGlassSettingsScope.maybeOf(context) ??
+        matteLight;
+  }
+
   LiquidGlassSettings copyWith({
     Color? tintColor,
     double? tintOpacity,
@@ -90,5 +101,59 @@ class LiquidGlassSettings {
       shadowBlurRadius: shadowBlurRadius ?? this.shadowBlurRadius,
       shadowOffset: shadowOffset ?? this.shadowOffset,
     );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is LiquidGlassSettings &&
+            tintColor == other.tintColor &&
+            tintOpacity == other.tintOpacity &&
+            blurSigma == other.blurSigma &&
+            androidBlurSigma == other.androidBlurSigma &&
+            borderOpacity == other.borderOpacity &&
+            borderWidth == other.borderWidth &&
+            shadowOpacity == other.shadowOpacity &&
+            shadowBlurRadius == other.shadowBlurRadius &&
+            shadowOffset == other.shadowOffset;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        tintColor,
+        tintOpacity,
+        blurSigma,
+        androidBlurSigma,
+        borderOpacity,
+        borderWidth,
+        shadowOpacity,
+        shadowBlurRadius,
+        shadowOffset,
+      );
+}
+
+/// Provides baseline settings to descendant Liquid Glass components.
+///
+/// [LiquidGlassBackdropGroup] creates this scope when its `settings` argument
+/// is supplied. This widget is also public for layouts that need shared
+/// settings without backdrop grouping.
+class LiquidGlassSettingsScope extends InheritedWidget {
+  const LiquidGlassSettingsScope({
+    super.key,
+    required this.settings,
+    required super.child,
+  });
+
+  final LiquidGlassSettings settings;
+
+  static LiquidGlassSettings? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<LiquidGlassSettingsScope>()
+        ?.settings;
+  }
+
+  @override
+  bool updateShouldNotify(LiquidGlassSettingsScope oldWidget) {
+    return settings != oldWidget.settings;
   }
 }

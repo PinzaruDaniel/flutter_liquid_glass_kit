@@ -24,15 +24,21 @@ class PlatformGlass extends StatelessWidget {
     super.key,
     required this.child,
     required this.borderRadius,
-    this.settings = LiquidGlassSettings.matteLight,
+    LiquidGlassSettings? settings,
     this.useSharedBackdrop = true,
     this.width,
     this.height,
-  });
+  }) : _settings = settings;
 
   final Widget child;
   final BorderRadius borderRadius;
-  final LiquidGlassSettings settings;
+  final LiquidGlassSettings? _settings;
+
+  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  ///
+  /// During build, omitted settings inherit from the nearest shared scope.
+  LiquidGlassSettings get settings =>
+      _settings ?? LiquidGlassSettings.matteLight;
 
   /// Whether Android fallback surfaces can use [BackdropFilter.grouped].
   ///
@@ -44,10 +50,11 @@ class PlatformGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
     if (isNativeLiquidGlassSupported) {
       return _NativeLiquidGlass(
         borderRadius: borderRadius,
-        settings: settings,
+        settings: effectiveSettings,
         width: width,
         height: height,
         child: child,
@@ -55,7 +62,7 @@ class PlatformGlass extends StatelessWidget {
     }
     return FallbackGlass(
       borderRadius: borderRadius,
-      settings: settings,
+      settings: effectiveSettings,
       useSharedBackdrop: useSharedBackdrop,
       width: width,
       height: height,

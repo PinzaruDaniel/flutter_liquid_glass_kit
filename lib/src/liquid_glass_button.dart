@@ -19,17 +19,23 @@ class LiquidGlassButton extends StatefulWidget {
     super.key,
     required this.child,
     this.onPressed,
-    this.settings = LiquidGlassSettings.matteLight,
+    LiquidGlassSettings? settings,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     this.isLoading = false,
     this.pressScaleFactor = 0.96,
     this.animationDuration = const Duration(milliseconds: 120),
-  });
+  }) : _settings = settings;
 
   final Widget child;
   final VoidCallback? onPressed;
-  final LiquidGlassSettings settings;
+  final LiquidGlassSettings? _settings;
+
+  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  ///
+  /// During build, omitted settings inherit from the nearest shared scope.
+  LiquidGlassSettings get settings =>
+      _settings ?? LiquidGlassSettings.matteLight;
   final BorderRadius borderRadius;
   final EdgeInsetsGeometry padding;
 
@@ -93,6 +99,10 @@ class _LiquidGlassButtonState extends State<LiquidGlassButton>
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSettings = LiquidGlassSettings.resolve(
+      context,
+      widget._settings,
+    );
     return Semantics(
       button: true,
       enabled: _isEnabled,
@@ -110,9 +120,10 @@ class _LiquidGlassButtonState extends State<LiquidGlassButton>
           child: PlatformGlass(
             borderRadius: widget.borderRadius,
             settings: _isEnabled
-                ? widget.settings
-                : widget.settings
-                    .copyWith(tintOpacity: widget.settings.tintOpacity * 0.5),
+                ? effectiveSettings
+                : effectiveSettings.copyWith(
+                    tintOpacity: effectiveSettings.tintOpacity * 0.5,
+                  ),
             child: Padding(
               padding: widget.padding,
               child: widget.isLoading

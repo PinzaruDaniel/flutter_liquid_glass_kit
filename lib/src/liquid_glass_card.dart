@@ -20,16 +20,22 @@ class LiquidGlassCard extends StatelessWidget {
   const LiquidGlassCard({
     super.key,
     required this.child,
-    this.settings = LiquidGlassSettings.matteLight,
+    LiquidGlassSettings? settings,
     this.borderRadius = const BorderRadius.all(Radius.circular(24)),
     this.width,
     this.height,
     this.padding = const EdgeInsets.all(16),
     this.margin = EdgeInsets.zero,
-  });
+  }) : _settings = settings;
 
   final Widget child;
-  final LiquidGlassSettings settings;
+  final LiquidGlassSettings? _settings;
+
+  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  ///
+  /// During build, omitted settings inherit from the nearest shared scope.
+  LiquidGlassSettings get settings =>
+      _settings ?? LiquidGlassSettings.matteLight;
   final BorderRadius borderRadius;
   final double? width;
   final double? height;
@@ -42,11 +48,12 @@ class LiquidGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
     return Padding(
       padding: margin,
       child: PlatformGlass(
         borderRadius: borderRadius,
-        settings: settings,
+        settings: effectiveSettings,
         width: width,
         height: height,
         child: Padding(

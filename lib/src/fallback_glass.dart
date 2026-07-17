@@ -106,13 +106,68 @@ class FallbackGlass extends StatelessWidget {
 /// Do not wrap multiple [PageView] pages or route transitions in one group:
 /// pages can overlap while moving, which can make grouped backdrop filters
 /// sample the wrong backdrop and visibly change color during the transition.
-class LiquidGlassBackdropGroup extends StatelessWidget {
-  const LiquidGlassBackdropGroup({super.key, required this.child});
+class LiquidGlassBackdropGroup extends StatefulWidget {
+  const LiquidGlassBackdropGroup({
+    super.key,
+    required this.child,
+    this.settings,
+    this.disableBlurWhileScrolling = true,
+  });
 
   final Widget child;
 
+  /// Baseline settings inherited by descendant Liquid Glass components.
+  ///
+  /// A component that supplies its own `settings` overrides this value.
+  final LiquidGlassSettings? settings;
+
+  /// Whether grouped fallback surfaces temporarily use their matte tint only
+  /// while a descendant scrollable is moving.
+  ///
+  /// Disabling backdrop blur during motion substantially reduces Android GPU
+  /// work. The blur is restored as soon as scrolling settles.
+  final bool disableBlurWhileScrolling;
+
   @override
-  Widget build(BuildContext context) => BackdropGroup(child: child);
+  State<LiquidGlassBackdropGroup> createState() =>
+      _LiquidGlassBackdropGroupState();
+}
+
+class _LiquidGlassBackdropGroupState extends State<LiquidGlassBackdropGroup> {
+  final BackdropKey _backdropKey = BackdropKey();
+  bool _isScrolling = false;
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    final isScrolling = switch (notification) {
+      ScrollStartNotification() => true,
+      ScrollEndNotification() => false,
+      _ => _isScrolling,
+    };
+    if (_isScrolling != isScrolling) {
+      setState(() => _isScrolling = isScrolling);
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scopedChild = widget.settings == null
+        ? widget.child
+        : LiquidGlassSettingsScope(
+            settings: widget.settings!,
+            child: widget.child,
+          );
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: BackdropGroup(
+        backdropKey: _backdropKey,
+        child: _BackdropPerformanceScope(
+          blurDisabled: widget.disableBlurWhileScrolling && _isScrolling,
+          child: scopedChild,
+        ),
+      ),
+    );
+  }
 }
 
 /// Scroll behavior for Android glass-heavy screens.
@@ -133,7 +188,7 @@ class LiquidGlassScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
-class _SharedBackdropFilter extends StatelessWidget {
+class _SharedBackdropFilter extends StatefulWidget {
   const _SharedBackdropFilter({
     required this.sigma,
     required this.enabled,
@@ -145,11 +200,50 @@ class _SharedBackdropFilter extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_SharedBackdropFilter> createState() => _SharedBackdropFilterState();
+}
+
+class _SharedBackdropFilterState extends State<_SharedBackdropFilter> {
+  late ImageFilter _filter = _createFilter();
+
+  ImageFilter _createFilter() =>
+      ImageFilter.blur(sigmaX: widget.sigma, sigmaY: widget.sigma);
+
+  @override
+  void didUpdateWidget(covariant _SharedBackdropFilter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sigma != widget.sigma) _filter = _createFilter();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final filter = ImageFilter.blur(sigmaX: sigma, sigmaY: sigma);
-    if (enabled && BackdropGroup.of(context) != null) {
-      return BackdropFilter.grouped(filter: filter, child: child);
+    if (_BackdropPerformanceScope.blurDisabledOf(context)) {
+      return widget.child;
     }
-    return BackdropFilter(filter: filter, child: child);
+    if (widget.enabled && BackdropGroup.of(context) != null) {
+      return BackdropFilter.grouped(filter: _filter, child: widget.child);
+    }
+    return BackdropFilter(filter: _filter, child: widget.child);
+  }
+}
+
+class _BackdropPerformanceScope extends InheritedWidget {
+  const _BackdropPerformanceScope({
+    required this.blurDisabled,
+    required super.child,
+  });
+
+  final bool blurDisabled;
+
+  static bool blurDisabledOf(BuildContext context) {
+    return context
+            .dependOnInheritedWidgetOfExactType<_BackdropPerformanceScope>()
+            ?.blurDisabled ??
+        false;
+  }
+
+  @override
+  bool updateShouldNotify(_BackdropPerformanceScope oldWidget) {
+    return blurDisabled != oldWidget.blurDisabled;
   }
 }
