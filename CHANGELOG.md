@@ -1,3 +1,7 @@
+## 1.0.6
+
+- Expand README guidance and document all public constructors and parameters.
+
 ## 1.0.5
 
 - Preserve custom Android tint colors through the glass highlight gradient instead of washing them out with white.

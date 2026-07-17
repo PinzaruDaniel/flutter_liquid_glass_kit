@@ -34,6 +34,14 @@ import 'platform_glass.dart';
 /// )
 /// ```
 class LiquidGlassNavBar extends StatelessWidget {
+  /// Creates a controlled floating navigation bar.
+  ///
+  /// Place this widget as a child of a [Stack] because it returns a
+  /// [Positioned] surface. The selected item is controlled by [currentIndex];
+  /// [onTap] must update that value in the parent. On the Flutter fallback,
+  /// users can hold and drag the indicator to preview items before releasing.
+  ///
+  /// When `settings` is omitted, the nearest shared settings scope is used.
   const LiquidGlassNavBar({
     super.key,
     required this.items,
@@ -55,32 +63,49 @@ class LiquidGlassNavBar extends StatelessWidget {
         assert(horizontalPadding >= 0),
         assert(bottomPadding >= 0);
 
+  /// Items displayed from left to right.
+  ///
+  /// At least two items are required.
   final List<LiquidGlassNavItem> items;
+
+  /// Index of the currently selected item.
   final int currentIndex;
+
+  /// Called with the selected index after a tap or completed drag.
+  ///
+  /// Cancelling a drag does not call this callback.
   final ValueChanged<int> onTap;
   final LiquidGlassSettings? _settings;
 
-  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  /// The locally supplied settings, or [LiquidGlassSettings.matteLight] when
+  /// no local settings were supplied.
   ///
-  /// During build, omitted settings inherit from the nearest shared scope.
+  /// The effective inherited value is resolved during build.
   LiquidGlassSettings get settings =>
       _settings ?? LiquidGlassSettings.matteLight;
 
-  /// Height of the nav bar surface.
+  /// Height of the navigation surface in logical pixels.
   final double height;
 
-  /// Horizontal inset from screen edges.
+  /// Horizontal inset from the containing [Stack]'s left and right edges.
   final double horizontalPadding;
 
-  /// Spacing above the safe-area bottom.
+  /// Additional spacing above the device safe-area bottom.
   final double bottomPadding;
 
+  /// Shape of the fallback navigation surface.
   final BorderRadius borderRadius;
+
+  /// Color inherited by the selected icon, widget, and label.
   final Color activeColor;
+
+  /// Color inherited by unselected icons, widgets, and labels.
   final Color inactiveColor;
+
+  /// Base color used for the animated fallback selection indicator.
   final Color indicatorColor;
 
-  /// Whether to show text labels below icons.
+  /// Whether labels are displayed below icons on both renderers.
   final bool showLabels;
 
   @override
@@ -617,6 +642,12 @@ class _DockItem extends StatelessWidget {
 
 /// A single item descriptor for [LiquidGlassNavBar].
 class LiquidGlassNavItem {
+  /// Describes one destination in a [LiquidGlassNavBar].
+  ///
+  /// [icon] and [label] provide cross-platform fallbacks. Android can replace
+  /// the icon with arbitrary widgets through [androidIcon] and
+  /// [activeAndroidIcon]. iOS can use explicit SF Symbol names through
+  /// [iosSystemImage] and [iosSelectedSystemImage].
   const LiquidGlassNavItem({
     required this.icon,
     this.activeIcon,
@@ -628,6 +659,8 @@ class LiquidGlassNavItem {
     this.iosSelectedSystemImage,
   });
 
+  /// Material icon used by the Flutter fallback and for automatic SF Symbol
+  /// mapping when no platform-specific icon is supplied.
   final IconData icon;
 
   /// Optional icon shown when this item is selected.
@@ -646,9 +679,12 @@ class LiquidGlassNavItem {
   /// [activeIcon] falls back to [icon].
   final Widget? activeAndroidIcon;
 
+  /// Text displayed below the icon when the bar shows labels.
   final String label;
 
-  /// Optional badge count (null = hidden).
+  /// Optional badge count.
+  ///
+  /// The badge is hidden when null, zero, or negative.
   final int? badge;
 
   /// Optional SF Symbol name used by the native iOS tab bar.
@@ -657,5 +693,8 @@ class LiquidGlassNavItem {
   final String? iosSystemImage;
 
   /// Optional selected-state SF Symbol name used by the native iOS tab bar.
+  ///
+  /// When omitted, [iosSystemImage] or the automatic Material-icon mapping is
+  /// reused.
   final String? iosSelectedSystemImage;
 }

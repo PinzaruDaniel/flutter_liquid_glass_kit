@@ -5,11 +5,12 @@ import 'package:flutter/services.dart';
 import 'liquid_glass_settings.dart';
 import 'fallback_glass.dart';
 
-/// Determines whether this widget will use the native iOS glass surface.
+/// Whether glass widgets use the native iOS renderer on this platform.
 ///
 /// The native view itself uses the OS availability check for Liquid Glass. On
 /// iOS versions before Liquid Glass is available, it provides a native material
-/// fallback. Android always uses [FallbackGlass].
+/// fallback. Android, web, and desktop platforms return false and use the
+/// Flutter fallback.
 bool get isNativeLiquidGlassSupported {
   return !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 }
@@ -20,6 +21,11 @@ bool get isNativeLiquidGlassSupported {
 /// You typically don't use this directly — prefer [LiquidGlassCard],
 /// [LiquidGlassButton], or [LiquidGlassNavBar].
 class PlatformGlass extends StatelessWidget {
+  /// Creates the platform-adaptive glass surface used by higher-level widgets.
+  ///
+  /// When `settings` is omitted, the nearest shared settings scope is used.
+  /// Most applications should prefer [LiquidGlassCard], [LiquidGlassButton],
+  /// or [LiquidGlassNavBar].
   const PlatformGlass({
     super.key,
     required this.child,
@@ -30,22 +36,33 @@ class PlatformGlass extends StatelessWidget {
     this.height,
   }) : _settings = settings;
 
+  /// Content painted above the native or fallback glass surface.
   final Widget child;
+
+  /// Shape of the surface.
+  ///
+  /// Native iOS currently uses the top-left radius as its uniform corner
+  /// radius. The Flutter fallback supports the full [BorderRadius].
   final BorderRadius borderRadius;
   final LiquidGlassSettings? _settings;
 
-  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  /// The locally supplied settings, or [LiquidGlassSettings.matteLight] when
+  /// no local settings were supplied.
   ///
-  /// During build, omitted settings inherit from the nearest shared scope.
+  /// The effective inherited value is resolved during build.
   LiquidGlassSettings get settings =>
       _settings ?? LiquidGlassSettings.matteLight;
 
   /// Whether Android fallback surfaces can use [BackdropFilter.grouped].
   ///
   /// Disable this for floating surfaces that may overlap other glass widgets.
+  /// This flag has no effect on the native iOS renderer.
   final bool useSharedBackdrop;
 
+  /// Optional fixed width. When null, normal parent constraints are used.
   final double? width;
+
+  /// Optional fixed height. When null, the child determines the height.
   final double? height;
 
   @override

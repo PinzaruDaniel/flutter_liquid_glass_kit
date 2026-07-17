@@ -6,6 +6,12 @@ import 'package:flutter/material.dart';
 /// On Android, they control the Flutter matte-glass fallback. Set [tintColor]
 /// to use a coloured glass surface; leave it null for adaptive matte glass.
 class LiquidGlassSettings {
+  /// Creates an immutable Liquid Glass visual configuration.
+  ///
+  /// Opacity values are expected to be between `0.0` and `1.0`. On Android,
+  /// the effective blur is the lower of [blurSigma] and [androidBlurSigma].
+  /// Shadow and border properties affect the Flutter fallback renderer; iOS
+  /// native surfaces use the closest available system material treatment.
   const LiquidGlassSettings({
     this.tintColor,
     this.tintOpacity = 0.15,
@@ -24,10 +30,15 @@ class LiquidGlassSettings {
   /// the fallback selects an adaptive light or dark matte colour.
   final Color? tintColor;
 
-  /// Opacity of the tint layer (0.0 – 1.0).
+  /// Opacity of [tintColor], from `0.0` (transparent) to `1.0` (opaque).
+  ///
+  /// A saturated custom tint commonly looks best between `0.20` and `0.40`.
   final double tintOpacity;
 
-  /// Gaussian blur radius applied to content behind the glass.
+  /// Requested Gaussian blur sigma for content behind the surface.
+  ///
+  /// This value is forwarded to native iOS surfaces. Android additionally
+  /// caps it with [androidBlurSigma] to control GPU cost.
   final double blurSigma;
 
   /// Maximum blur used by the Android fallback renderer.
@@ -38,22 +49,22 @@ class LiquidGlassSettings {
   /// disable Android backdrop blur entirely.
   final double androidBlurSigma;
 
-  /// Opacity of the glass border highlight.
+  /// Opacity of the fallback renderer's white border highlight.
   final double borderOpacity;
 
-  /// Width of the border stroke in logical pixels.
+  /// Width of the fallback renderer's border in logical pixels.
   final double borderWidth;
 
-  /// Opacity of the drop shadow.
+  /// Opacity of the fallback renderer's black drop shadow.
   final double shadowOpacity;
 
-  /// Blur radius of the drop shadow.
+  /// Blur radius of the fallback renderer's drop shadow.
   final double shadowBlurRadius;
 
-  /// Offset of the drop shadow.
+  /// Offset of the fallback renderer's drop shadow.
   final Offset shadowOffset;
 
-  /// Reasonable defaults matching the iOS 26 matte-glass look.
+  /// A bright neutral preset suited to dark or colorful backgrounds.
   static const LiquidGlassSettings matteLight = LiquidGlassSettings(
     tintColor: Colors.white,
     tintOpacity: 0.18,
@@ -61,6 +72,10 @@ class LiquidGlassSettings {
     borderOpacity: 0.30,
   );
 
+  /// A stronger charcoal preset with a reduced Android blur cap.
+  ///
+  /// Use this when the surface must remain visibly dark independently of the
+  /// surrounding app theme.
   static const LiquidGlassSettings matteDark = LiquidGlassSettings(
     tintColor: Color(0xFF1C1C1E),
     tintOpacity: 0.72,
@@ -70,8 +85,11 @@ class LiquidGlassSettings {
     shadowOpacity: 0.20,
   );
 
-  /// Resolves component settings from a local override, the nearest shared
-  /// settings scope, or [matteLight] when neither is supplied.
+  /// Resolves the effective settings for a component.
+  ///
+  /// Resolution order is [localSettings], the nearest
+  /// [LiquidGlassSettingsScope], then [matteLight]. Components call this during
+  /// build so local settings always override inherited baseline settings.
   static LiquidGlassSettings resolve(
     BuildContext context,
     LiquidGlassSettings? localSettings,
@@ -81,6 +99,11 @@ class LiquidGlassSettings {
         matteLight;
   }
 
+  /// Returns a copy with the supplied fields replaced.
+  ///
+  /// Omitted fields retain their current values. Because `null` means "keep the
+  /// current value", this method cannot clear an existing [tintColor]. Create a
+  /// new [LiquidGlassSettings] instance when an adaptive null tint is required.
   LiquidGlassSettings copyWith({
     Color? tintColor,
     double? tintOpacity,
@@ -140,14 +163,20 @@ class LiquidGlassSettings {
 /// is supplied. This widget is also public for layouts that need shared
 /// settings without backdrop grouping.
 class LiquidGlassSettingsScope extends InheritedWidget {
+  /// Provides [settings] to Liquid Glass descendants that omit local settings.
   const LiquidGlassSettingsScope({
     super.key,
     required this.settings,
     required super.child,
   });
 
+  /// Baseline settings inherited by descendant components.
   final LiquidGlassSettings settings;
 
+  /// Returns the nearest inherited settings, or `null` when no scope exists.
+  ///
+  /// Calling this method establishes a dependency on the scope, so the caller
+  /// rebuilds when [settings] changes.
   static LiquidGlassSettings? maybeOf(BuildContext context) {
     return context
         .dependOnInheritedWidgetOfExactType<LiquidGlassSettingsScope>()

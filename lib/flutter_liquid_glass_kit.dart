@@ -1,7 +1,11 @@
-/// iOS 26 Liquid Glass UI Kit
+/// Platform-adaptive Liquid Glass components for Flutter.
 ///
-/// Native SwiftUI bridge on iOS 26+, graceful glassmorphism fallback on Android
-/// and older iOS versions.
+/// The package renders native SwiftUI glass on iOS and an optimized Flutter
+/// matte-glass fallback on Android, web, and desktop. Start with
+/// [LiquidGlassCard], [LiquidGlassButton], or [LiquidGlassNavBar]. Use
+/// [LiquidGlassSettingsScope] for an app-wide baseline and
+/// [LiquidGlassBackdropGroup] around non-overlapping glass surfaces in a
+/// scrollable Android section.
 library flutter_liquid_glass_kit;
 
 export 'src/liquid_glass_card.dart';

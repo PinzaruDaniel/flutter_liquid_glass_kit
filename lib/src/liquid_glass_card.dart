@@ -17,6 +17,11 @@ import 'platform_glass.dart';
 /// )
 /// ```
 class LiquidGlassCard extends StatelessWidget {
+  /// Creates a glass container around [child].
+  ///
+  /// When `settings` is omitted, the card inherits from the nearest
+  /// [LiquidGlassSettingsScope] or [LiquidGlassBackdropGroup], then falls back
+  /// to [LiquidGlassSettings.matteLight].
   const LiquidGlassCard({
     super.key,
     required this.child,
@@ -28,16 +33,25 @@ class LiquidGlassCard extends StatelessWidget {
     this.margin = EdgeInsets.zero,
   }) : _settings = settings;
 
+  /// Content painted above the glass surface.
   final Widget child;
   final LiquidGlassSettings? _settings;
 
-  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  /// The locally supplied settings, or [LiquidGlassSettings.matteLight] when
+  /// no local settings were supplied.
   ///
-  /// During build, omitted settings inherit from the nearest shared scope.
+  /// This getter cannot include inherited settings because it has no
+  /// [BuildContext]. The effective value is resolved during build.
   LiquidGlassSettings get settings =>
       _settings ?? LiquidGlassSettings.matteLight;
+
+  /// Shape of the glass surface and its clipping boundary.
   final BorderRadius borderRadius;
+
+  /// Optional fixed width. When null, normal parent constraints are used.
   final double? width;
+
+  /// Optional fixed height. When null, the child determines the height.
   final double? height;
 
   /// Inner padding applied to [child].

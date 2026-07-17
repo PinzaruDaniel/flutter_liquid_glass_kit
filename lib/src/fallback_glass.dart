@@ -117,6 +117,10 @@ class FallbackGlass extends StatelessWidget {
 /// pages can overlap while moving, which can make grouped backdrop filters
 /// sample the wrong backdrop and visibly change color during the transition.
 class LiquidGlassBackdropGroup extends StatefulWidget {
+  /// Creates a shared backdrop and optional settings boundary around [child].
+  ///
+  /// Group only non-overlapping glass surfaces. Overlapping filters that share
+  /// a backdrop key can sample the wrong input and appear transparent.
   const LiquidGlassBackdropGroup({
     super.key,
     required this.child,
@@ -124,6 +128,7 @@ class LiquidGlassBackdropGroup extends StatefulWidget {
     this.disableBlurWhileScrolling = true,
   });
 
+  /// Subtree containing the glass surfaces and, commonly, its scrollable.
   final Widget child;
 
   /// Baseline settings inherited by descendant Liquid Glass components.
@@ -186,6 +191,7 @@ class _LiquidGlassBackdropGroupState extends State<LiquidGlassBackdropGroup> {
 /// sampling at the start and end of scrollable content. Use this behavior on
 /// screens that contain fallback glass surfaces to keep the glass tint stable.
 class LiquidGlassScrollBehavior extends MaterialScrollBehavior {
+  /// Creates scroll behavior without Android overscroll glow or stretch.
   const LiquidGlassScrollBehavior();
 
   @override

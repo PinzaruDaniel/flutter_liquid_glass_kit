@@ -15,6 +15,12 @@ import 'platform_glass.dart';
 /// )
 /// ```
 class LiquidGlassButton extends StatefulWidget {
+  /// Creates an interactive glass button.
+  ///
+  /// The button is disabled when [onPressed] is null or [isLoading] is true.
+  /// When `settings` is omitted, settings are inherited from the nearest
+  /// shared settings scope before falling back to
+  /// [LiquidGlassSettings.matteLight].
   const LiquidGlassButton({
     super.key,
     required this.child,
@@ -27,24 +33,39 @@ class LiquidGlassButton extends StatefulWidget {
     this.animationDuration = const Duration(milliseconds: 120),
   }) : _settings = settings;
 
+  /// Content displayed when [isLoading] is false.
   final Widget child;
+
+  /// Called after a successful tap.
+  ///
+  /// Set to null to disable interaction and render a subdued tint.
   final VoidCallback? onPressed;
   final LiquidGlassSettings? _settings;
 
-  /// Local settings, or [LiquidGlassSettings.matteLight] when omitted.
+  /// The locally supplied settings, or [LiquidGlassSettings.matteLight] when
+  /// no local settings were supplied.
   ///
-  /// During build, omitted settings inherit from the nearest shared scope.
+  /// The effective inherited value is resolved during build.
   LiquidGlassSettings get settings =>
       _settings ?? LiquidGlassSettings.matteLight;
+
+  /// Shape of the glass surface and its clipping boundary.
   final BorderRadius borderRadius;
+
+  /// Space between the glass edge and [child].
   final EdgeInsetsGeometry padding;
 
-  /// Shows a [CircularProgressIndicator] in place of [child] when `true`.
+  /// Whether to show a [CircularProgressIndicator] instead of [child].
+  ///
+  /// Loading also disables [onPressed].
   final bool isLoading;
 
-  /// Scale factor applied while the button is pressed (0.0 – 1.0).
+  /// Scale applied while pressed, normally between `0.0` and `1.0`.
+  ///
+  /// The default `0.96` provides subtle tactile feedback.
   final double pressScaleFactor;
 
+  /// Duration of the press and release scale animation.
   final Duration animationDuration;
 
   @override
