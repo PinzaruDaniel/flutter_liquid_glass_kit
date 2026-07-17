@@ -73,62 +73,72 @@ class _GlassShowcaseState extends State<GlassShowcase> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: LiquidGlassBackdropGroup(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            const DemoBackground(),
-            SafeArea(
-              bottom: false,
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                children: [
-                  ShowcasePage(
-                    loading: _loading,
-                    onToggleLoading: _runLoadingDemo,
-                  ),
-                  const SearchPage(),
-                  const SavedPage(),
-                  const ProfilePage(),
-                ],
-              ),
-            ),
-            LiquidGlassNavBar(
-              currentIndex: _navIndex,
-              onTap: _setNavIndex,
-              items: const [
-                LiquidGlassNavItem(
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home,
-                  label: 'Home',
-                  iosSystemImage: 'house',
-                  iosSelectedSystemImage: 'house.fill',
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DemoBackground(),
+          SafeArea(
+            bottom: false,
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: _onPageChanged,
+              children: [
+                ShowcasePage(
+                  loading: _loading,
+                  onToggleLoading: _runLoadingDemo,
                 ),
-                LiquidGlassNavItem(
-                  icon: Icons.search,
-                  label: 'Search',
-                  badge: 3,
-                  iosSystemImage: 'magnifyingglass',
-                ),
-                LiquidGlassNavItem(
-                  icon: Icons.favorite_outline,
-                  activeIcon: Icons.favorite,
-                  label: 'Saved',
-                  iosSystemImage: 'heart',
-                  iosSelectedSystemImage: 'heart.fill',
-                ),
-                LiquidGlassNavItem(
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: 'Profile',
-                  iosSystemImage: 'person',
-                  iosSelectedSystemImage: 'person.fill',
-                ),
+                const SearchPage(),
+                const SavedPage(),
+                const ProfilePage(),
               ],
             ),
-          ],
-        ),
+          ),
+          LiquidGlassNavBar(
+            currentIndex: _navIndex,
+            onTap: _setNavIndex,
+            items: const [
+              LiquidGlassNavItem(
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home,
+                label: 'Home',
+                iosSystemImage: 'house',
+                iosSelectedSystemImage: 'house.fill',
+              ),
+              LiquidGlassNavItem(
+                icon: Icons.search,
+                label: 'Search',
+                badge: 3,
+                androidIcon: SizedBox.square(
+                  dimension: 25,
+                  child: Center(
+                    child: Text(
+                      'S',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                iosSystemImage: 'magnifyingglass',
+              ),
+              LiquidGlassNavItem(
+                icon: Icons.favorite_outline,
+                activeIcon: Icons.favorite,
+                label: 'Saved',
+                iosSystemImage: 'heart',
+                iosSelectedSystemImage: 'heart.fill',
+              ),
+              LiquidGlassNavItem(
+                icon: Icons.person_outline,
+                activeIcon: Icons.person,
+                label: 'Profile',
+                iosSystemImage: 'person',
+                iosSelectedSystemImage: 'person.fill',
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

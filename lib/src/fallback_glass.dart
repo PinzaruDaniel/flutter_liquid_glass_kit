@@ -99,8 +99,13 @@ class FallbackGlass extends StatelessWidget {
 
 /// Shares backdrop input between non-overlapping fallback surfaces.
 ///
-/// Wrap a screen or section containing several Liquid Glass widgets with
-/// [LiquidGlassBackdropGroup] to reduce Android blur passes to one.
+/// Wrap a screen or section containing several non-overlapping Liquid Glass
+/// widgets with [LiquidGlassBackdropGroup] to reduce Android blur passes to
+/// one.
+///
+/// Do not wrap multiple [PageView] pages or route transitions in one group:
+/// pages can overlap while moving, which can make grouped backdrop filters
+/// sample the wrong backdrop and visibly change color during the transition.
 class LiquidGlassBackdropGroup extends StatelessWidget {
   const LiquidGlassBackdropGroup({super.key, required this.child});
 

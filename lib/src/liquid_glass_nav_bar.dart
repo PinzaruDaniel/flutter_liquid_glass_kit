@@ -22,7 +22,11 @@ import 'platform_glass.dart';
 ///         items: [
 ///           LiquidGlassNavItem(icon: Icons.home, label: 'Home'),
 ///           LiquidGlassNavItem(icon: Icons.search, label: 'Search'),
-///           LiquidGlassNavItem(icon: Icons.person, label: 'Profile'),
+///           LiquidGlassNavItem(
+///             icon: Icons.person,
+///             label: 'Profile',
+///             androidIcon: CircleAvatar(child: Text('P')),
+///           ),
 ///         ],
 ///       ),
 ///     ],
@@ -236,30 +240,44 @@ class _LiquidGlassDock extends StatefulWidget {
 }
 
 class _LiquidGlassDockState extends State<_LiquidGlassDock>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
-  late int _fromIndex;
-  late int _toIndex;
+  late final AnimationController _holdController;
+  late final Listenable _indicatorAnimation;
+  late double _fromPosition;
+  late double _toPosition;
+  double? _dragCenter;
+  int? _dragIndex;
 
   static const _duration = Duration(milliseconds: 550);
-  // How much the blob grows vertically (px) at the peak of the stretch.
-  static const double _maxVerticalStretch = 6;
+  static const _holdDuration = Duration(milliseconds: 180);
+  static const double _holdWidthExpansion = 16;
+  static const double _holdHeightExpansion = 12;
+  // Long jumps briefly lift the indicator beyond the dock, like the native
+  // Liquid Glass selection motion.
+  static const double _maxVerticalStretch = 18;
 
   @override
   void initState() {
     super.initState();
-    _fromIndex = widget.currentIndex;
-    _toIndex = widget.currentIndex;
+    _fromPosition = widget.currentIndex.toDouble();
+    _toPosition = widget.currentIndex.toDouble();
     _controller = AnimationController(vsync: this, duration: _duration)
       ..value = 1;
+    _holdController = AnimationController(
+      vsync: this,
+      duration: _holdDuration,
+      reverseDuration: const Duration(milliseconds: 140),
+    );
+    _indicatorAnimation = Listenable.merge([_controller, _holdController]);
   }
 
   @override
   void didUpdateWidget(covariant _LiquidGlassDock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
-      _fromIndex = _currentBlobIndex();
-      _toIndex = widget.currentIndex;
+      _fromPosition = _currentBlobPosition();
+      _toPosition = widget.currentIndex.toDouble();
       _controller
         ..stop()
         ..value = 0
@@ -269,15 +287,70 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
 
   // If a tap interrupts an in-flight animation, start the new leg from
   // wherever the blob visually is right now instead of snapping back.
-  int _currentBlobIndex() {
-    if (!_controller.isAnimating) return _toIndex;
+  double _currentBlobPosition() {
+    if (!_controller.isAnimating) return _toPosition;
     final t = Curves.easeOutCubic.transform(_controller.value);
-    return (_fromIndex + (_toIndex - _fromIndex) * t).round();
+    return _lerp(_fromPosition, _toPosition, t);
+  }
+
+  double _clampDragCenter(
+    double center,
+    double itemWidth,
+    double dockWidth,
+  ) {
+    return center.clamp(itemWidth / 2, dockWidth - itemWidth / 2);
+  }
+
+  int _indexForCenter(double center, double itemWidth) {
+    return (center / itemWidth).floor().clamp(0, widget.items.length - 1);
+  }
+
+  void _startDrag(double center, double itemWidth, double dockWidth) {
+    _controller.stop();
+    _holdController.forward();
+    final clamped = _clampDragCenter(center, itemWidth, dockWidth);
+    setState(() {
+      _dragCenter = clamped;
+      _dragIndex = _indexForCenter(clamped, itemWidth);
+    });
+  }
+
+  void _updateDrag(double center, double itemWidth, double dockWidth) {
+    final clamped = _clampDragCenter(center, itemWidth, dockWidth);
+    final index = _indexForCenter(clamped, itemWidth);
+    if (index != _dragIndex) HapticFeedback.selectionClick();
+    setState(() {
+      _dragCenter = clamped;
+      _dragIndex = index;
+    });
+  }
+
+  void _finishDrag(double itemWidth, {required bool selectItem}) {
+    final center = _dragCenter;
+    if (center == null) return;
+
+    final target =
+        selectItem ? _indexForCenter(center, itemWidth) : widget.currentIndex;
+    _fromPosition = center / itemWidth - 0.5;
+    _toPosition = target.toDouble();
+    setState(() {
+      _dragCenter = null;
+      _dragIndex = null;
+    });
+    _holdController.reverse();
+    _controller
+      ..value = 0
+      ..forward();
+
+    if (selectItem && target != widget.currentIndex) {
+      widget.onTap(target);
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _holdController.dispose();
     super.dispose();
   }
 
@@ -285,15 +358,26 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
 
   /// Computes the current geometry of the liquid indicator.
   ///
-  /// The center eases from [_fromIndex] to [_toIndex]. Independently, a
+  /// The center eases from [_fromPosition] to [_toPosition]. Independently, a
   /// bell-shaped stretch factor (0 at start/end, peak at the midpoint)
   /// grows the blob vertically, then settles back to the resting pill shape.
   Rect _blobRect(double itemWidth, double dockHeight) {
+    final dragCenter = _dragCenter;
+    if (dragCenter != null) {
+      final restWidth = itemWidth - 8;
+      final restHeight = dockHeight - 8;
+      return Rect.fromCenter(
+        center: Offset(dragCenter, dockHeight / 2),
+        width: restWidth + _holdWidthExpansion * _holdController.value,
+        height: restHeight + _holdHeightExpansion * _holdController.value,
+      );
+    }
+
     final t = _controller.value;
     final positionT = Curves.easeOutCubic.transform(t);
 
-    final fromCenter = (_fromIndex + 0.5) * itemWidth;
-    final toCenter = (_toIndex + 0.5) * itemWidth;
+    final fromCenter = (_fromPosition + 0.5) * itemWidth;
+    final toCenter = (_toPosition + 0.5) * itemWidth;
     final center = _lerp(fromCenter, toCenter, positionT);
 
     // Bell curve: 0 at t=0 and t=1, 1 at t=0.5.
@@ -302,14 +386,15 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     // Scale the stretch by travel distance so an adjacent-tab tap doesn't
     // balloon as dramatically as a jump across the whole dock.
     final travel = (toCenter - fromCenter).abs();
-    final travelFactor = (travel / (itemWidth * 1.5)).clamp(0.35, 1.0);
+    final travelFactor = (travel / (itemWidth * 1.5)).clamp(0.65, 1.0);
 
     final restWidth = itemWidth - 8;
     final restHeight = dockHeight - 8;
 
-    final width = restWidth;
-    final height = (restHeight + _maxVerticalStretch * stretch * travelFactor)
-        .clamp(restHeight, dockHeight - 4);
+    final width = restWidth + _holdWidthExpansion * _holdController.value;
+    final height = restHeight +
+        _maxVerticalStretch * stretch * travelFactor +
+        _holdHeightExpansion * _holdController.value;
 
     final left = center - width / 2;
     final top = (dockHeight - height) / 2;
@@ -327,6 +412,7 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
       height: widget.height,
       child: Stack(
         fit: StackFit.expand,
+        clipBehavior: Clip.none,
         children: [
           RepaintBoundary(
             child: IgnorePointer(
@@ -341,47 +427,85 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
           LayoutBuilder(
             builder: (context, constraints) {
               final itemWidth = constraints.maxWidth / widget.items.length;
-              return Stack(
-                children: [
-                  AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, _) {
-                      final rect = _blobRect(itemWidth, widget.height);
-                      return Positioned.fromRect(
-                        rect: rect,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color:
-                                widget.indicatorColor.withValues(alpha: 0.28),
-                            borderRadius:
-                                BorderRadius.circular(rect.height / 2),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.14),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+              return Listener(
+                onPointerCancel: (_) =>
+                    _finishDrag(itemWidth, selectItem: false),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (details) => _startDrag(
+                    details.localPosition.dx,
+                    itemWidth,
+                    constraints.maxWidth,
                   ),
-                  Row(
+                  onHorizontalDragUpdate: (details) => _updateDrag(
+                    details.localPosition.dx,
+                    itemWidth,
+                    constraints.maxWidth,
+                  ),
+                  onHorizontalDragEnd: (_) =>
+                      _finishDrag(itemWidth, selectItem: true),
+                  onHorizontalDragCancel: () =>
+                      _finishDrag(itemWidth, selectItem: false),
+                  onLongPressStart: (details) => _startDrag(
+                    details.localPosition.dx,
+                    itemWidth,
+                    constraints.maxWidth,
+                  ),
+                  onLongPressMoveUpdate: (details) => _updateDrag(
+                    details.localPosition.dx,
+                    itemWidth,
+                    constraints.maxWidth,
+                  ),
+                  onLongPressEnd: (_) =>
+                      _finishDrag(itemWidth, selectItem: true),
+                  child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      for (var index = 0; index < widget.items.length; index++)
-                        Expanded(
-                          child: _DockItem(
-                            item: widget.items[index],
-                            isActive: index == widget.currentIndex,
-                            activeColor: widget.activeColor,
-                            inactiveColor: widget.inactiveColor,
-                            showLabel: widget.showLabels,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              widget.onTap(index);
-                            },
-                          ),
-                        ),
+                      AnimatedBuilder(
+                        animation: _indicatorAnimation,
+                        builder: (context, _) {
+                          final rect = _blobRect(itemWidth, widget.height);
+                          return Positioned.fromRect(
+                            rect: rect,
+                            child: DecoratedBox(
+                              key: const ValueKey('liquid-glass-nav-indicator'),
+                              decoration: BoxDecoration(
+                                color: widget.indicatorColor
+                                    .withValues(alpha: 0.28),
+                                borderRadius:
+                                    BorderRadius.circular(rect.height / 2),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.14),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      Row(
+                        children: [
+                          for (var index = 0;
+                              index < widget.items.length;
+                              index++)
+                            Expanded(
+                              child: _DockItem(
+                                item: widget.items[index],
+                                isActive: index ==
+                                    (_dragIndex ?? widget.currentIndex),
+                                activeColor: widget.activeColor,
+                                inactiveColor: widget.inactiveColor,
+                                showLabel: widget.showLabels,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  widget.onTap(index);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
               );
             },
           ),
@@ -411,7 +535,10 @@ class _DockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive ? activeColor : inactiveColor;
-    final icon = isActive ? (item.activeIcon ?? item.icon) : item.icon;
+    final fallbackIcon = isActive ? (item.activeIcon ?? item.icon) : item.icon;
+    final icon = isActive
+        ? (item.activeAndroidIcon ?? item.androidIcon)
+        : item.androidIcon;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -425,7 +552,13 @@ class _DockItem extends StatelessWidget {
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 scale: isActive ? 1.08 : 1,
-                child: Icon(icon, color: color, size: 25),
+                child: IconTheme(
+                  data: IconThemeData(color: color, size: 25),
+                  child: DefaultTextStyle.merge(
+                    style: TextStyle(color: color),
+                    child: icon ?? Icon(fallbackIcon),
+                  ),
+                ),
               ),
               if (item.badge != null && item.badge! > 0)
                 Positioned(
@@ -472,6 +605,8 @@ class LiquidGlassNavItem {
   const LiquidGlassNavItem({
     required this.icon,
     this.activeIcon,
+    this.androidIcon,
+    this.activeAndroidIcon,
     required this.label,
     this.badge,
     this.iosSystemImage,
@@ -482,6 +617,19 @@ class LiquidGlassNavItem {
 
   /// Optional icon shown when this item is selected.
   final IconData? activeIcon;
+
+  /// Optional widget rendered by the Flutter fallback nav bar on Android and
+  /// other non-iOS platforms.
+  ///
+  /// If omitted, [icon] is rendered as a normal [Icon]. The widget inherits an
+  /// [IconTheme] and [DefaultTextStyle] with the current active/inactive color.
+  final Widget? androidIcon;
+
+  /// Optional widget rendered by the Flutter fallback nav bar when selected.
+  ///
+  /// If omitted, [androidIcon] is reused. If both widget fields are omitted,
+  /// [activeIcon] falls back to [icon].
+  final Widget? activeAndroidIcon;
 
   final String label;
 

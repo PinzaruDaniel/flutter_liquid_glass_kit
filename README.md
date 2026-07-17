@@ -37,7 +37,11 @@ LiquidGlassNavBar(
   onTap: (i) => setState(() => _index = i),
   items: [
     LiquidGlassNavItem(icon: Icons.home, label: 'Home'),
-    LiquidGlassNavItem(icon: Icons.search, label: 'Search'),
+    LiquidGlassNavItem(
+      icon: Icons.search,
+      label: 'Search',
+      androidIcon: Text('S'),
+    ),
     LiquidGlassNavItem(icon: Icons.person, label: 'Profile'),
   ],
 )

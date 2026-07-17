@@ -5,6 +5,8 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:flutter/material.dart';
+import 'package:flutter_liquid_glass_kit/flutter_liquid_glass_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:example/app.dart';
@@ -28,6 +30,23 @@ void main() {
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsOneWidget);
+  });
+
+  testWidgets('keeps backdrop groups inside individual pages', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+
+    var pageViewHasBackdropGroupAncestor = false;
+    tester.element(find.byType(PageView)).visitAncestorElements((element) {
+      if (element.widget is LiquidGlassBackdropGroup) {
+        pageViewHasBackdropGroupAncestor = true;
+      }
+      return true;
+    });
+
+    expect(pageViewHasBackdropGroupAncestor, isFalse);
+    expect(find.byType(LiquidGlassBackdropGroup), findsWidgets);
   });
 
   testWidgets('handles fast navigation taps without switcher key errors', (

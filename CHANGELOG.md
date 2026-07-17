@@ -1,3 +1,9 @@
+## 1.0.4
+
+- Improve the Android navigation indicator with finger-following drag selection, active item previews, press expansion, and an iOS-style vertical stretch during tab jumps.
+- Add Android widget icons for `LiquidGlassNavItem`.
+- Scope example backdrop groups per page to keep Android glass colors stable during horizontal navigation.
+
 ## 1.0.3
 
 - Add `LiquidGlassScrollBehavior` to keep Android glass colors stable during overscroll.
