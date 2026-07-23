@@ -158,6 +158,8 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
   private let channel: FlutterMethodChannel
   private var items: [UITabBarItem] = []
   private var disposed = false
+  private var scrollCollapseScale: CGFloat = 0.82
+  private var scrollAnimationDuration: TimeInterval = 0.28
 
   init(
     frame: CGRect,
@@ -198,6 +200,13 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
     tabBar.layer.borderWidth = 0
     tabBar.layer.shadowOpacity = 0
 
+    if let scale = args?["scrollCollapseScale"] as? Double {
+      scrollCollapseScale = min(max(CGFloat(scale), 0.01), 1)
+    }
+    if let duration = args?["scrollAnimationDurationMillis"] as? Int {
+      scrollAnimationDuration = max(Double(duration) / 1000, 0)
+    }
+
     applyAppearance(args: args)
     applyItems(args: args)
 
@@ -211,6 +220,20 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
       case "setCurrentIndex":
         if let index = call.arguments as? Int {
           self.setCurrentIndex(index, animated: true)
+        }
+        result(nil)
+      case "setCollapsed":
+        if let configuration = call.arguments as? [String: Any] {
+          let collapsed = configuration["collapsed"] as? Bool ?? false
+          if let scale = configuration["scale"] as? Double {
+            self.scrollCollapseScale = min(max(CGFloat(scale), 0.01), 1)
+          }
+          if let duration = configuration["durationMillis"] as? Int {
+            self.scrollAnimationDuration = max(Double(duration) / 1000, 0)
+          }
+          self.setCollapsed(collapsed, animated: true)
+        } else if let collapsed = call.arguments as? Bool {
+          self.setCollapsed(collapsed, animated: true)
         }
         result(nil)
       default:
@@ -294,6 +317,26 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
     if animated {
       animateSelectedItem(index: index)
     }
+  }
+
+  private func setCollapsed(_ collapsed: Bool, animated: Bool) {
+    let scale = collapsed ? scrollCollapseScale : 1
+    let transform = CGAffineTransform(scaleX: scale, y: scale)
+    guard animated && scrollAnimationDuration > 0 else {
+      tabBar.transform = transform
+      return
+    }
+
+    UIView.animate(
+      withDuration: scrollAnimationDuration,
+      delay: 0,
+      usingSpringWithDamping: 0.86,
+      initialSpringVelocity: 0.2,
+      options: [.allowUserInteraction, .beginFromCurrentState],
+      animations: {
+        self.tabBar.transform = transform
+      }
+    )
   }
 
   func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {

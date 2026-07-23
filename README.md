@@ -51,7 +51,10 @@ replaces the child with a progress indicator. Use `pressScaleFactor` and
 ### Navigation bar
 
 `LiquidGlassNavBar` returns a `Positioned` widget and must be placed inside a
-`Stack`. It is controlled: update `currentIndex` from `onTap`.
+`Stack`. It is controlled: update `currentIndex` from `onTap`. Its safe-area
+spacing defaults to `8` logical pixels on native iOS and `16` on Android and
+other fallback platforms; customize these with `iosBottomPadding` and
+`bottomPadding`.
 
 ```dart
 Scaffold(
@@ -84,6 +87,37 @@ Scaffold(
 On the Flutter fallback, users can hold and drag the selection indicator. Icons
 and labels preview the item under the indicator, but navigation occurs only
 after release. Cancelling restores the current item.
+
+iOS and Android can optionally shrink the bar while a vertical scrollable
+moves down, then restore it as soon as scrolling moves up or after an idle
+delay. Each platform can be configured independently:
+
+```dart
+LiquidGlassNavBar(
+  currentIndex: currentIndex,
+  onTap: onTap,
+  iosScrollConfiguration: const LiquidGlassIOSNavBarScrollConfiguration(
+    collapsedScale: 0.82,
+    collapseThreshold: 12,
+    animationDuration: Duration(milliseconds: 280),
+    idleExpandDuration: Duration(seconds: 5),
+  ),
+  androidScrollConfiguration:
+      const LiquidGlassAndroidNavBarScrollConfiguration(
+    collapsedScale: 0.82,
+    collapseThreshold: 12,
+    animationDuration: Duration(milliseconds: 280),
+    idleExpandDuration: Duration(seconds: 5),
+  ),
+  items: items,
+)
+```
+
+The behavior also expands at the top and when an item is selected. It listens
+through the nearest `ScrollNotificationObserver`; a `Scaffold` supplies one
+automatically. Wrap custom layouts in `ScrollNotificationObserver` when no
+`Scaffold` ancestor is present. Each configuration is ignored outside its
+target platform, and both are ignored on web and desktop.
 
 `androidIcon` and `activeAndroidIcon` accept arbitrary widgets. They inherit
 the active `IconTheme` and `DefaultTextStyle`. Native iOS uses SF Symbol names

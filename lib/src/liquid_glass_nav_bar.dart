@@ -1,15 +1,18 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:math' as math;
 
 import 'liquid_glass_settings.dart';
 import 'platform_glass.dart';
 
 /// A floating glass bottom navigation bar.
 ///
-/// Floats above the content, positioned with [bottomPadding] from the safe
-/// area. On iOS 26+ this renders via the native SwiftUI glass surface.
+/// Floats above the content, positioned from the safe area with
+/// [iosBottomPadding] on iOS and [bottomPadding] on other platforms. On iOS
+/// 26+ this renders via the native SwiftUI glass surface.
 ///
 /// ```dart
 /// Scaffold(
@@ -51,17 +54,21 @@ class LiquidGlassNavBar extends StatelessWidget {
     this.height = 64,
     this.horizontalPadding = 20,
     this.bottomPadding = 16,
+    this.iosBottomPadding = 8,
     this.borderRadius = const BorderRadius.all(Radius.circular(32)),
     this.activeColor = Colors.white,
     this.inactiveColor = const Color(0x99FFFFFF),
     this.indicatorColor = const Color(0x33FFFFFF),
     this.showLabels = true,
+    this.iosScrollConfiguration,
+    this.androidScrollConfiguration,
   })  : _settings = settings,
         assert(items.length > 1, 'A navigation bar needs at least two items.'),
         assert(currentIndex >= 0 && currentIndex < items.length),
         assert(height > 0),
         assert(horizontalPadding >= 0),
-        assert(bottomPadding >= 0);
+        assert(bottomPadding >= 0),
+        assert(iosBottomPadding >= 0);
 
   /// Items displayed from left to right.
   ///
@@ -90,8 +97,13 @@ class LiquidGlassNavBar extends StatelessWidget {
   /// Horizontal inset from the containing [Stack]'s left and right edges.
   final double horizontalPadding;
 
-  /// Additional spacing above the device safe-area bottom.
+  /// Additional spacing above the device safe-area bottom outside native iOS.
   final double bottomPadding;
+
+  /// Additional spacing above the device safe-area bottom on native iOS.
+  ///
+  /// The smaller default accounts for the taller iOS home-indicator safe area.
+  final double iosBottomPadding;
 
   /// Shape of the fallback navigation surface.
   final BorderRadius borderRadius;
@@ -108,11 +120,23 @@ class LiquidGlassNavBar extends StatelessWidget {
   /// Whether labels are displayed below icons on both renderers.
   final bool showLabels;
 
+  /// Optional native iOS behavior that collapses the bar while scrolling down.
+  ///
+  /// When null, scroll-driven resizing is disabled. This setting has no effect
+  /// on Android or other Flutter fallback platforms.
+  final LiquidGlassIOSNavBarScrollConfiguration? iosScrollConfiguration;
+
+  /// Optional Android behavior that collapses the bar while scrolling down.
+  ///
+  /// When null, scroll-driven resizing is disabled. This setting has no effect
+  /// on iOS, web, desktop, or other Flutter fallback platforms.
+  final LiquidGlassAndroidNavBarScrollConfiguration? androidScrollConfiguration;
+
   @override
   Widget build(BuildContext context) {
-    final safeBottom = MediaQuery.of(context).padding.bottom;
     final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
-    final navBar = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+    final isNativeIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final navBar = isNativeIOS
         ? _NativeIOSNavBar(
             items: items,
             currentIndex: currentIndex,
@@ -123,6 +147,7 @@ class LiquidGlassNavBar extends StatelessWidget {
             inactiveColor: inactiveColor,
             indicatorColor: indicatorColor,
             showLabels: showLabels,
+            scrollConfiguration: iosScrollConfiguration,
           )
         : _LiquidGlassDock(
             items: items,
@@ -135,12 +160,16 @@ class LiquidGlassNavBar extends StatelessWidget {
             inactiveColor: inactiveColor,
             indicatorColor: indicatorColor,
             showLabels: showLabels,
+            scrollConfiguration:
+                !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+                    ? androidScrollConfiguration
+                    : null,
           );
 
     return Positioned(
       left: horizontalPadding,
       right: horizontalPadding,
-      bottom: safeBottom + bottomPadding,
+      bottom: isNativeIOS ? iosBottomPadding : bottomPadding,
       child: navBar,
     );
   }
@@ -157,6 +186,7 @@ class _NativeIOSNavBar extends StatefulWidget {
     required this.inactiveColor,
     required this.indicatorColor,
     required this.showLabels,
+    required this.scrollConfiguration,
   });
 
   final List<LiquidGlassNavItem> items;
@@ -168,6 +198,7 @@ class _NativeIOSNavBar extends StatefulWidget {
   final Color inactiveColor;
   final Color indicatorColor;
   final bool showLabels;
+  final LiquidGlassIOSNavBarScrollConfiguration? scrollConfiguration;
 
   @override
   State<_NativeIOSNavBar> createState() => _NativeIOSNavBarState();
@@ -175,6 +206,10 @@ class _NativeIOSNavBar extends StatefulWidget {
 
 class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
   MethodChannel? _channel;
+  ScrollNotificationObserverState? _scrollObserver;
+  Timer? _idleExpandTimer;
+  bool _isCollapsed = false;
+  double _accumulatedDownwardScroll = 0;
 
   Map<String, dynamic> get _creationParams => {
         'items': [
@@ -195,18 +230,104 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
         'inactiveColorHex': _hex(widget.inactiveColor),
         'indicatorColorHex': _hex(widget.indicatorColor),
         'showLabels': widget.showLabels,
+        'scrollCollapseScale': widget.scrollConfiguration?.collapsedScale,
+        'scrollAnimationDurationMillis':
+            widget.scrollConfiguration?.animationDuration.inMilliseconds,
       };
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _attachScrollObserver();
+  }
 
   @override
   void didUpdateWidget(covariant _NativeIOSNavBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
       _channel?.invokeMethod<void>('setCurrentIndex', widget.currentIndex);
+      _expandImmediately();
     }
+    if (oldWidget.scrollConfiguration != widget.scrollConfiguration) {
+      _attachScrollObserver();
+      if (widget.scrollConfiguration == null) {
+        _expandImmediately();
+      } else {
+        _sendCollapsedState();
+      }
+    }
+  }
+
+  void _attachScrollObserver() {
+    _scrollObserver?.removeListener(_handleScrollNotification);
+    _scrollObserver = null;
+    if (widget.scrollConfiguration == null) return;
+    _scrollObserver = ScrollNotificationObserver.maybeOf(context);
+    _scrollObserver?.addListener(_handleScrollNotification);
+  }
+
+  void _handleScrollNotification(ScrollNotification notification) {
+    final configuration = widget.scrollConfiguration;
+    if (configuration == null || notification.metrics.axis != Axis.vertical) {
+      return;
+    }
+    if (notification is! ScrollUpdateNotification) return;
+
+    final metrics = notification.metrics;
+    final delta = notification.scrollDelta ?? 0;
+    if (metrics.pixels <= metrics.minScrollExtent) {
+      _expandImmediately();
+      return;
+    }
+    if (delta < 0) {
+      _expandImmediately();
+      return;
+    }
+    if (delta <= 0) return;
+
+    _accumulatedDownwardScroll += delta;
+    if (_accumulatedDownwardScroll >= configuration.collapseThreshold) {
+      _setCollapsed(true);
+    }
+    _scheduleIdleExpansion(configuration);
+  }
+
+  void _scheduleIdleExpansion(
+    LiquidGlassIOSNavBarScrollConfiguration configuration,
+  ) {
+    _idleExpandTimer?.cancel();
+    _idleExpandTimer = Timer(
+      configuration.idleExpandDuration,
+      _expandImmediately,
+    );
+  }
+
+  void _expandImmediately() {
+    _idleExpandTimer?.cancel();
+    _idleExpandTimer = null;
+    _accumulatedDownwardScroll = 0;
+    _setCollapsed(false);
+  }
+
+  void _setCollapsed(bool collapsed) {
+    if (_isCollapsed == collapsed) return;
+    _isCollapsed = collapsed;
+    _sendCollapsedState();
+  }
+
+  void _sendCollapsedState() {
+    final configuration = widget.scrollConfiguration;
+    _channel?.invokeMethod<void>('setCollapsed', {
+      'collapsed': _isCollapsed && configuration != null,
+      'scale': configuration?.collapsedScale ?? 1.0,
+      'durationMillis': configuration?.animationDuration.inMilliseconds ?? 0,
+    });
   }
 
   @override
   void dispose() {
+    _idleExpandTimer?.cancel();
+    _scrollObserver?.removeListener(_handleScrollNotification);
     _channel?.setMethodCallHandler(null);
     super.dispose();
   }
@@ -225,11 +346,13 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
           channel.setMethodCallHandler((call) async {
             if (call.method == 'tap') {
               final index = call.arguments as int;
+              _expandImmediately();
               HapticFeedback.selectionClick();
               widget.onTap(index);
             }
           });
           _channel = channel;
+          _sendCollapsedState();
         },
       ),
     );
@@ -238,6 +361,101 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
   String _hex(Color color) {
     return '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
   }
+}
+
+/// Configures native iOS nav-bar resizing in response to vertical scrolling.
+///
+/// Pass an instance to [LiquidGlassNavBar.iosScrollConfiguration] to collapse
+/// the native bar after downward scrolling. Upward scrolling, reaching the top,
+/// selecting an item, or waiting for [idleExpandDuration] restores normal size.
+@immutable
+class LiquidGlassIOSNavBarScrollConfiguration {
+  /// Creates an iOS scroll-resize configuration.
+  const LiquidGlassIOSNavBarScrollConfiguration({
+    this.collapsedScale = 0.82,
+    this.collapseThreshold = 12,
+    this.animationDuration = const Duration(milliseconds: 280),
+    this.idleExpandDuration = const Duration(seconds: 5),
+  })  : assert(collapsedScale > 0 && collapsedScale <= 1),
+        assert(collapseThreshold >= 0);
+
+  /// Scale applied to both width and height while collapsed.
+  final double collapsedScale;
+
+  /// Accumulated downward scroll distance required before collapsing.
+  final double collapseThreshold;
+
+  /// Duration of the native spring resize animation.
+  final Duration animationDuration;
+
+  /// Time since the last downward update before automatically expanding.
+  final Duration idleExpandDuration;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is LiquidGlassIOSNavBarScrollConfiguration &&
+            collapsedScale == other.collapsedScale &&
+            collapseThreshold == other.collapseThreshold &&
+            animationDuration == other.animationDuration &&
+            idleExpandDuration == other.idleExpandDuration;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        collapsedScale,
+        collapseThreshold,
+        animationDuration,
+        idleExpandDuration,
+      );
+}
+
+/// Configures Android nav-bar resizing in response to vertical scrolling.
+///
+/// Pass an instance to [LiquidGlassNavBar.androidScrollConfiguration] to
+/// collapse the Flutter-rendered Android bar after downward scrolling. Upward
+/// scrolling, reaching the top, selecting an item, or waiting for
+/// [idleExpandDuration] restores normal size.
+@immutable
+class LiquidGlassAndroidNavBarScrollConfiguration {
+  /// Creates an Android scroll-resize configuration.
+  const LiquidGlassAndroidNavBarScrollConfiguration({
+    this.collapsedScale = 0.82,
+    this.collapseThreshold = 12,
+    this.animationDuration = const Duration(milliseconds: 280),
+    this.idleExpandDuration = const Duration(seconds: 5),
+  })  : assert(collapsedScale > 0 && collapsedScale <= 1),
+        assert(collapseThreshold >= 0);
+
+  /// Scale applied to both width and height while collapsed.
+  final double collapsedScale;
+
+  /// Accumulated downward scroll distance required before collapsing.
+  final double collapseThreshold;
+
+  /// Duration of the Flutter scale animation.
+  final Duration animationDuration;
+
+  /// Time since the last downward update before automatically expanding.
+  final Duration idleExpandDuration;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is LiquidGlassAndroidNavBarScrollConfiguration &&
+            collapsedScale == other.collapsedScale &&
+            collapseThreshold == other.collapseThreshold &&
+            animationDuration == other.animationDuration &&
+            idleExpandDuration == other.idleExpandDuration;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        collapsedScale,
+        collapseThreshold,
+        animationDuration,
+        idleExpandDuration,
+      );
 }
 
 /// Shared floating dock. [PlatformGlass] supplies native Liquid Glass on iOS
@@ -255,6 +473,7 @@ class _LiquidGlassDock extends StatefulWidget {
     required this.inactiveColor,
     required this.indicatorColor,
     required this.showLabels,
+    required this.scrollConfiguration,
   });
 
   final List<LiquidGlassNavItem> items;
@@ -267,6 +486,7 @@ class _LiquidGlassDock extends StatefulWidget {
   final Color inactiveColor;
   final Color indicatorColor;
   final bool showLabels;
+  final LiquidGlassAndroidNavBarScrollConfiguration? scrollConfiguration;
 
   @override
   State<_LiquidGlassDock> createState() => _LiquidGlassDockState();
@@ -281,6 +501,10 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
   late final ValueNotifier<int?> _dragIndex;
   late double _fromPosition;
   late double _toPosition;
+  ScrollNotificationObserverState? _scrollObserver;
+  Timer? _idleExpandTimer;
+  bool _isCollapsed = false;
+  double _accumulatedDownwardScroll = 0;
 
   static const _duration = Duration(milliseconds: 550);
   static const _holdDuration = Duration(milliseconds: 180);
@@ -312,9 +536,16 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _attachScrollObserver();
+  }
+
+  @override
   void didUpdateWidget(covariant _LiquidGlassDock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
+      _expandImmediately();
       _fromPosition = _currentBlobPosition();
       _toPosition = widget.currentIndex.toDouble();
       _controller
@@ -322,6 +553,64 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
         ..value = 0
         ..forward();
     }
+    if (oldWidget.scrollConfiguration != widget.scrollConfiguration) {
+      _attachScrollObserver();
+      if (widget.scrollConfiguration == null) {
+        _expandImmediately();
+      }
+    }
+  }
+
+  void _attachScrollObserver() {
+    _scrollObserver?.removeListener(_handleScrollNotification);
+    _scrollObserver = null;
+    if (widget.scrollConfiguration == null) return;
+    _scrollObserver = ScrollNotificationObserver.maybeOf(context);
+    _scrollObserver?.addListener(_handleScrollNotification);
+  }
+
+  void _handleScrollNotification(ScrollNotification notification) {
+    final configuration = widget.scrollConfiguration;
+    if (configuration == null || notification.metrics.axis != Axis.vertical) {
+      return;
+    }
+    if (notification is! ScrollUpdateNotification) return;
+
+    final metrics = notification.metrics;
+    final delta = notification.scrollDelta ?? 0;
+    if (metrics.pixels <= metrics.minScrollExtent || delta < 0) {
+      _expandImmediately();
+      return;
+    }
+    if (delta <= 0) return;
+
+    _accumulatedDownwardScroll += delta;
+    if (_accumulatedDownwardScroll >= configuration.collapseThreshold) {
+      _setCollapsed(true);
+    }
+    _scheduleIdleExpansion(configuration);
+  }
+
+  void _scheduleIdleExpansion(
+    LiquidGlassAndroidNavBarScrollConfiguration configuration,
+  ) {
+    _idleExpandTimer?.cancel();
+    _idleExpandTimer = Timer(
+      configuration.idleExpandDuration,
+      _expandImmediately,
+    );
+  }
+
+  void _expandImmediately() {
+    _idleExpandTimer?.cancel();
+    _idleExpandTimer = null;
+    _accumulatedDownwardScroll = 0;
+    _setCollapsed(false);
+  }
+
+  void _setCollapsed(bool collapsed) {
+    if (_isCollapsed == collapsed) return;
+    setState(() => _isCollapsed = collapsed);
   }
 
   // If a tap interrupts an in-flight animation, start the new leg from
@@ -377,6 +666,9 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
       ..value = 0
       ..forward();
 
+    if (selectItem) {
+      _expandImmediately();
+    }
     if (selectItem && target != widget.currentIndex) {
       widget.onTap(target);
     }
@@ -384,6 +676,8 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
 
   @override
   void dispose() {
+    _idleExpandTimer?.cancel();
+    _scrollObserver?.removeListener(_handleScrollNotification);
     _controller.dispose();
     _holdController.dispose();
     _dragCenter.dispose();
@@ -445,111 +739,120 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
         ? widget.settings.copyWith(tintColor: Colors.black, tintOpacity: 0.26)
         : widget.settings;
 
-    return SizedBox(
-      height: widget.height,
-      child: Stack(
-        fit: StackFit.expand,
-        clipBehavior: Clip.none,
-        children: [
-          RepaintBoundary(
-            child: IgnorePointer(
-              child: PlatformGlass(
-                borderRadius: widget.borderRadius,
-                settings: dockSettings,
-                useSharedBackdrop: false,
-                child: const SizedBox.expand(),
+    final scrollConfiguration = widget.scrollConfiguration;
+    return AnimatedScale(
+      key: const ValueKey('liquid-glass-nav-dock-scale'),
+      scale: _isCollapsed ? scrollConfiguration?.collapsedScale ?? 1.0 : 1.0,
+      duration: scrollConfiguration?.animationDuration ?? Duration.zero,
+      curve: Curves.easeOutBack,
+      child: SizedBox(
+        height: widget.height,
+        child: Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.none,
+          children: [
+            RepaintBoundary(
+              child: IgnorePointer(
+                child: PlatformGlass(
+                  borderRadius: widget.borderRadius,
+                  settings: dockSettings,
+                  useSharedBackdrop: false,
+                  child: const SizedBox.expand(),
+                ),
               ),
             ),
-          ),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = constraints.maxWidth / widget.items.length;
-              return Listener(
-                onPointerCancel: (_) =>
-                    _finishDrag(itemWidth, selectItem: false),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onHorizontalDragStart: (details) => _startDrag(
-                    details.localPosition.dx,
-                    itemWidth,
-                    constraints.maxWidth,
-                  ),
-                  onHorizontalDragUpdate: (details) => _updateDrag(
-                    details.localPosition.dx,
-                    itemWidth,
-                    constraints.maxWidth,
-                  ),
-                  onHorizontalDragEnd: (_) =>
-                      _finishDrag(itemWidth, selectItem: true),
-                  onHorizontalDragCancel: () =>
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final itemWidth = constraints.maxWidth / widget.items.length;
+                return Listener(
+                  onPointerCancel: (_) =>
                       _finishDrag(itemWidth, selectItem: false),
-                  onLongPressStart: (details) => _startDrag(
-                    details.localPosition.dx,
-                    itemWidth,
-                    constraints.maxWidth,
-                  ),
-                  onLongPressMoveUpdate: (details) => _updateDrag(
-                    details.localPosition.dx,
-                    itemWidth,
-                    constraints.maxWidth,
-                  ),
-                  onLongPressEnd: (_) =>
-                      _finishDrag(itemWidth, selectItem: true),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      AnimatedBuilder(
-                        animation: _indicatorAnimation,
-                        builder: (context, _) {
-                          final rect = _blobRect(itemWidth, widget.height);
-                          return Positioned.fromRect(
-                            rect: rect,
-                            child: DecoratedBox(
-                              key: const ValueKey('liquid-glass-nav-indicator'),
-                              decoration: BoxDecoration(
-                                color: widget.indicatorColor
-                                    .withValues(alpha: 0.28),
-                                borderRadius:
-                                    BorderRadius.circular(rect.height / 2),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.14),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragStart: (details) => _startDrag(
+                      details.localPosition.dx,
+                      itemWidth,
+                      constraints.maxWidth,
+                    ),
+                    onHorizontalDragUpdate: (details) => _updateDrag(
+                      details.localPosition.dx,
+                      itemWidth,
+                      constraints.maxWidth,
+                    ),
+                    onHorizontalDragEnd: (_) =>
+                        _finishDrag(itemWidth, selectItem: true),
+                    onHorizontalDragCancel: () =>
+                        _finishDrag(itemWidth, selectItem: false),
+                    onLongPressStart: (details) => _startDrag(
+                      details.localPosition.dx,
+                      itemWidth,
+                      constraints.maxWidth,
+                    ),
+                    onLongPressMoveUpdate: (details) => _updateDrag(
+                      details.localPosition.dx,
+                      itemWidth,
+                      constraints.maxWidth,
+                    ),
+                    onLongPressEnd: (_) =>
+                        _finishDrag(itemWidth, selectItem: true),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        AnimatedBuilder(
+                          animation: _indicatorAnimation,
+                          builder: (context, _) {
+                            final rect = _blobRect(itemWidth, widget.height);
+                            return Positioned.fromRect(
+                              rect: rect,
+                              child: DecoratedBox(
+                                key: const ValueKey(
+                                    'liquid-glass-nav-indicator'),
+                                decoration: BoxDecoration(
+                                  color: widget.indicatorColor
+                                      .withValues(alpha: 0.28),
+                                  borderRadius:
+                                      BorderRadius.circular(rect.height / 2),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      ValueListenableBuilder<int?>(
-                        valueListenable: _dragIndex,
-                        builder: (context, dragIndex, _) => Row(
-                          children: [
-                            for (var index = 0;
-                                index < widget.items.length;
-                                index++)
-                              Expanded(
-                                child: _DockItem(
-                                  item: widget.items[index],
-                                  isActive: index ==
-                                      (dragIndex ?? widget.currentIndex),
-                                  activeColor: widget.activeColor,
-                                  inactiveColor: widget.inactiveColor,
-                                  showLabel: widget.showLabels,
-                                  onTap: () {
-                                    HapticFeedback.selectionClick();
-                                    widget.onTap(index);
-                                  },
-                                ),
-                              ),
-                          ],
+                            );
+                          },
                         ),
-                      ),
-                    ],
+                        ValueListenableBuilder<int?>(
+                          valueListenable: _dragIndex,
+                          builder: (context, dragIndex, _) => Row(
+                            children: [
+                              for (var index = 0;
+                                  index < widget.items.length;
+                                  index++)
+                                Expanded(
+                                  child: _DockItem(
+                                    item: widget.items[index],
+                                    isActive: index ==
+                                        (dragIndex ?? widget.currentIndex),
+                                    activeColor: widget.activeColor,
+                                    inactiveColor: widget.inactiveColor,
+                                    showLabel: widget.showLabels,
+                                    onTap: () {
+                                      _expandImmediately();
+                                      HapticFeedback.selectionClick();
+                                      widget.onTap(index);
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
-        ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

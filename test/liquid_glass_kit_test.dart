@@ -40,6 +40,64 @@ void main() {
     expect(first.hashCode, second.hashCode);
   });
 
+  test('iOS nav scroll configuration has stable defaults and equality', () {
+    const first = LiquidGlassIOSNavBarScrollConfiguration();
+    const second = LiquidGlassIOSNavBarScrollConfiguration();
+
+    expect(first.collapsedScale, 0.82);
+    expect(first.collapseThreshold, 12);
+    expect(first.animationDuration, const Duration(milliseconds: 280));
+    expect(first.idleExpandDuration, const Duration(seconds: 5));
+    expect(first, second);
+    expect(first.hashCode, second.hashCode);
+  });
+
+  test('Android nav scroll configuration has stable defaults and equality', () {
+    const first = LiquidGlassAndroidNavBarScrollConfiguration();
+    const second = LiquidGlassAndroidNavBarScrollConfiguration();
+
+    expect(first.collapsedScale, 0.82);
+    expect(first.collapseThreshold, 12);
+    expect(first.animationDuration, const Duration(milliseconds: 280));
+    expect(first.idleExpandDuration, const Duration(seconds: 5));
+    expect(first, second);
+    expect(first.hashCode, second.hashCode);
+  });
+
+  testWidgets('nav bar uses smaller default bottom spacing on iOS', (
+    tester,
+  ) async {
+    late BuildContext buildContext;
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(
+          padding: EdgeInsets.only(bottom: 34),
+        ),
+        child: Builder(
+          builder: (context) {
+            buildContext = context;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    final navBar = LiquidGlassNavBar(
+      currentIndex: 0,
+      onTap: _noop,
+      items: _navItems,
+    );
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    final androidPosition = navBar.build(buildContext) as Positioned;
+    expect(androidPosition.bottom, 50);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final iosPosition = navBar.build(buildContext) as Positioned;
+    expect(iosPosition.bottom, 42);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('glass scroll behavior removes overscroll indicators', (
     tester,
   ) async {
@@ -289,6 +347,8 @@ void main() {
                 currentIndex: 0,
                 onTap: _noop,
                 items: items,
+                iosScrollConfiguration:
+                    const LiquidGlassIOSNavBarScrollConfiguration(),
               ),
             ],
           ),
@@ -298,6 +358,63 @@ void main() {
 
     expect(find.text('H'), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets(
+    'Android nav bar collapses down and expands up or after idle',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                ListView(
+                  key: const ValueKey('scroll-list'),
+                  children: const [SizedBox(height: 1200)],
+                ),
+                LiquidGlassNavBar(
+                  currentIndex: 0,
+                  onTap: _noop,
+                  items: _navItems,
+                  androidScrollConfiguration:
+                      const LiquidGlassAndroidNavBarScrollConfiguration(
+                    collapsedScale: 0.7,
+                    collapseThreshold: 1,
+                    animationDuration: Duration.zero,
+                    idleExpandDuration: Duration(seconds: 5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final scaleFinder =
+          find.byKey(const ValueKey('liquid-glass-nav-dock-scale'));
+      double scale() => tester.widget<AnimatedScale>(scaleFinder).scale;
+
+      expect(scale(), 1);
+
+      final downwardScroll = await tester.startGesture(const Offset(200, 200));
+      await downwardScroll.moveBy(const Offset(0, -80));
+      await tester.pump();
+      expect(scale(), 0.7);
+
+      await downwardScroll.moveBy(const Offset(0, 20));
+      await tester.pump();
+      expect(scale(), 1);
+      await downwardScroll.up();
+
+      final idleScroll = await tester.startGesture(const Offset(200, 200));
+      await idleScroll.moveBy(const Offset(0, -80));
+      await tester.pump();
+      expect(scale(), 0.7);
+      await idleScroll.up();
+      await tester.pump(const Duration(seconds: 5));
+      expect(scale(), 1);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
 
   testWidgets('Android nav indicator grows beyond the bar during a jump', (
     tester,

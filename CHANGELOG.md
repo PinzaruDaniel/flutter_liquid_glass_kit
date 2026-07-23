@@ -1,5 +1,11 @@
+## 1.1.0
+
+- Add configurable Android nav-bar collapse on downward scrolling, with upward-scroll and five-second idle expansion.
+- Reduce the native iOS nav bar's default bottom spacing while keeping Android spacing unchanged.
+
 ## 1.0.6
 
+- Add configurable native iOS nav-bar collapse on downward scrolling, with upward-scroll and five-second idle expansion.
 - Expand README guidance and document all public constructors and parameters.
 
 ## 1.0.5

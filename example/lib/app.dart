@@ -92,6 +92,14 @@ class _GlassShowcaseState extends State<GlassShowcase> {
             LiquidGlassNavBar(
               currentIndex: _navIndex,
               onTap: _setNavIndex,
+              bottomPadding: 16,
+              iosBottomPadding: 16,
+              iosScrollConfiguration: const LiquidGlassIOSNavBarScrollConfiguration(),
+              androidScrollConfiguration: const LiquidGlassAndroidNavBarScrollConfiguration(
+                collapsedScale: 0.85,
+                collapseThreshold: 20,
+                animationDuration: Duration(milliseconds: 500),
+              ),
               items: const [
                 LiquidGlassNavItem(
                   icon: Icons.home_outlined,
